@@ -1,4 +1,42 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+// Fixed input component for forms
+  const FormInput = ({ value, onChange, onKeyPress, ...props }) => {
+    const [localValue, setLocalValue] = useState(value || '');
+    const [isFocused, setIsFocused] = useState(false);
+
+    useEffect(() => {
+      if (!isFocused) {
+        setLocalValue(value || '');
+      }
+    }, [value, isFocused]);
+
+    const handleChange = (e) => {
+      setLocalValue(e.target.value);
+      if (onChange) onChange(e);
+    };
+
+    const handleFocus = () => {
+      setIsFocused(true);
+    };
+
+    const handleBlur = () => {
+      setIsFocused(false);
+    };
+
+    const handleKeyPress = (e) => {
+      if (onKeyPress) onKeyPress(e);
+    };
+
+    return (
+      <input
+        {...props}
+        value={localValue}
+        onChange={handleChange}
+        onFocus={handleFocus}
+        onBlur={handleBlur}
+        onKeyPress={handleKeyPress}
+      />
+    );
+  };import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 
 // Simulated user database (replace with Firebase in production)
 let userDatabase = {
@@ -382,7 +420,7 @@ function App() {
               
               <div style={{ marginBottom: '20px' }}>
                 <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Email Address</label>
-                <input 
+                <FormInput 
                   type="email" 
                   value={resetEmail} 
                   onChange={(e) => setResetEmail(e.target.value)} 
@@ -445,7 +483,7 @@ function App() {
               {isRegister && (
                 <div style={{ marginBottom: '20px' }}>
                   <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Full Name</label>
-                  <input 
+                  <FormInput 
                     type="text" 
                     value={name} 
                     onChange={(e) => setName(e.target.value)} 
@@ -465,7 +503,7 @@ function App() {
 
               <div style={{ marginBottom: '20px' }}>
                 <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Email</label>
-                <input 
+                <FormInput 
                   type="email" 
                   value={email} 
                   onChange={(e) => setEmail(e.target.value)} 
@@ -484,7 +522,7 @@ function App() {
               
               <div style={{ marginBottom: '20px' }}>
                 <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Password</label>
-                <input 
+                <FormInput 
                   type="password" 
                   value={password} 
                   onChange={(e) => setPassword(e.target.value)} 
@@ -605,10 +643,13 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
   });
 
   // Get current active location
-  const getActiveLocation = () => {
-    const locations = userProfile.locations || [];
-    return locations.find(loc => loc.id === userProfile.activeLocationId) || locations[0];
-  };
+  const getActiveLocation = useCallback(() => {
+    const locations = userProfile?.locations || [];
+    if (locations.length === 0) return null;
+    
+    const activeLocation = locations.find(loc => loc?.id === userProfile?.activeLocationId);
+    return activeLocation || locations[0] || null;
+  }, [userProfile]);
 
   // Add new location
   const addLocation = () => {
@@ -754,36 +795,111 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
     }
   }, [user.id]);
 
-  // Location-aware medication search
+  // Multi-location medication search - searches ALL user locations
   const searchMedication = useCallback(async (searchTerm) => {
-    if (!searchTerm.trim()) return;
+    if (!searchTerm?.trim()) return;
     
     setIsSearching(true);
     
     setTimeout(() => {
       const basePrice = Math.random() * 50 + 20;
+      const locations = userProfile?.locations || [];
       const activeLocation = getActiveLocation();
-      const userLocation = activeLocation?.city || 'Benoni';
       
-      const pharmacies = [
-        { name: 'Dis-Chem', multiplier: 0.95, location: `${userLocation} City`, distance: '2.1km', phone: '011-421-0000' },
-        { name: 'Clicks', multiplier: 1.0, location: `${userLocation} Mall`, distance: '3.2km', phone: '011-425-0000' },
-        { name: 'Alpha Pharm', multiplier: 0.92, location: 'Main Street', distance: '2.5km', phone: '011-422-0000' },
-        { name: 'Medirite', multiplier: 1.05, location: 'Shopping Centre', distance: '4.1km', phone: '011-427-0000' },
-        { name: 'Pick n Pay Pharmacy', multiplier: 1.08, location: `${userLocation} Square`, distance: '1.8km', phone: '011-423-0000' }
-      ];
+      if (locations.length === 0) {
+        setMedicationResults([]);
+        setIsSearching(false);
+        return;
+      }
+      
+      // Create pharmacies for ALL user locations
+      const allResults = [];
+      
+      locations.forEach((location, locationIndex) => {
+        if (!location) return;
+        
+        const isActiveLocation = location.id === activeLocation?.id;
+        const locationMultiplier = isActiveLocation ? 1 : (1 + Math.random() * 0.3); // Active location gets slight price advantage
+        
+        const pharmacies = [
+          { 
+            name: 'Dis-Chem', 
+            multiplier: 0.95 * locationMultiplier, 
+            location: `${location.city || 'Unknown'} City`, 
+            distance: isActiveLocation ? '2.1km' : `${(15 + Math.random() * 25).toFixed(1)}km`,
+            phone: '011-421-0000',
+            locationName: location.name || 'Unknown',
+            city: location.city || 'Unknown',
+            province: location.province || 'Unknown',
+            isActiveLocation
+          },
+          { 
+            name: 'Clicks', 
+            multiplier: 1.0 * locationMultiplier, 
+            location: `${location.city || 'Unknown'} Mall`, 
+            distance: isActiveLocation ? '3.2km' : `${(18 + Math.random() * 22).toFixed(1)}km`,
+            phone: '011-425-0000',
+            locationName: location.name || 'Unknown',
+            city: location.city || 'Unknown',
+            province: location.province || 'Unknown',
+            isActiveLocation
+          },
+          { 
+            name: 'Alpha Pharm', 
+            multiplier: 0.92 * locationMultiplier, 
+            location: `${location.city || 'Unknown'} Main Street`, 
+            distance: isActiveLocation ? '2.5km' : `${(12 + Math.random() * 28).toFixed(1)}km`,
+            phone: '011-422-0000',
+            locationName: location.name || 'Unknown',
+            city: location.city || 'Unknown',
+            province: location.province || 'Unknown',
+            isActiveLocation
+          },
+          { 
+            name: 'Medirite', 
+            multiplier: 1.05 * locationMultiplier, 
+            location: `${location.city || 'Unknown'} Shopping Centre`, 
+            distance: isActiveLocation ? '4.1km' : `${(20 + Math.random() * 20).toFixed(1)}km`,
+            phone: '011-427-0000',
+            locationName: location.name || 'Unknown',
+            city: location.city || 'Unknown',
+            province: location.province || 'Unknown',
+            isActiveLocation
+          },
+          { 
+            name: 'Pick n Pay Pharmacy', 
+            multiplier: 1.08 * locationMultiplier, 
+            location: `${location.city || 'Unknown'} Square`, 
+            distance: isActiveLocation ? '1.8km' : `${(8 + Math.random() * 32).toFixed(1)}km`,
+            phone: '011-423-0000',
+            locationName: location.name || 'Unknown',
+            city: location.city || 'Unknown',
+            province: location.province || 'Unknown',
+            isActiveLocation
+          }
+        ];
 
-      const results = pharmacies.map(pharmacy => ({
-        name: searchTerm,
-        store: pharmacy.name,
-        price: (basePrice * pharmacy.multiplier).toFixed(2),
-        location: pharmacy.location,
-        distance: pharmacy.distance,
-        stock: Math.random() > 0.3 ? 'In Stock' : 'Limited Stock',
-        phone: pharmacy.phone
-      })).sort((a, b) => parseFloat(a.price) - parseFloat(b.price));
+        pharmacies.forEach(pharmacy => {
+          allResults.push({
+            name: searchTerm,
+            store: pharmacy.name,
+            price: (basePrice * pharmacy.multiplier).toFixed(2),
+            location: pharmacy.location,
+            distance: pharmacy.distance,
+            stock: Math.random() > 0.3 ? 'In Stock' : 'Limited Stock',
+            phone: pharmacy.phone,
+            locationName: pharmacy.locationName,
+            city: pharmacy.city,
+            province: pharmacy.province,
+            isActiveLocation: pharmacy.isActiveLocation
+          });
+        });
+      });
       
-      setMedicationResults(results);
+      // Sort by price (best deals first)
+      const sortedResults = allResults.sort((a, b) => parseFloat(a.price) - parseFloat(b.price));
+      
+      setMedicationResults(sortedResults);
       setIsSearching(false);
     }, 1500);
   }, [userProfile, getActiveLocation]);
@@ -884,7 +1000,7 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
     );
   });
 
-  const StableSelect = React.memo(({ value, onChange, children, ...props }) => {
+  const StableSelect = ({ value, onChange, children, ...props }) => {
     const handleChange = (e) => {
       if (onChange) onChange(e);
     };
@@ -892,18 +1008,37 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
     return (
       <select
         {...props}
-        value={value}
+        value={value || ''}
         onChange={handleChange}
       >
         {children}
       </select>
     );
-  });
+  };
 
-  const UsualItemRow = React.memo(({ item, index, onUpdate, onDelete }) => {
-    const [localItem, setLocalItem] = useState(item);
+  const UsualItemRow = ({ item, index, onUpdate, onDelete }) => {
+    const [localItem, setLocalItem] = useState(item || {});
+    const timeoutRef = useRef(null);
+
+    useEffect(() => {
+      setLocalItem(item || {});
+    }, [item]);
 
     const handleUpdate = (field, value) => {
+      const updatedItem = { ...localItem, [field]: value };
+      setLocalItem(updatedItem);
+      
+      // Debounce the save to prevent too many updates
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+      
+      timeoutRef.current = setTimeout(() => {
+        onUpdate(index, updatedItem);
+      }, 500);
+    };
+
+    const handleImmediateUpdate = (field, value) => {
       const updatedItem = { ...localItem, [field]: value };
       setLocalItem(updatedItem);
       onUpdate(index, updatedItem);
@@ -936,7 +1071,7 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
         />
         <StableSelect
           value={localItem.category || 'food'}
-          onChange={(e) => handleUpdate('category', e.target.value)}
+          onChange={(e) => handleImmediateUpdate('category', e.target.value)}
           style={{ padding: '8px', border: '1px solid #ccc', borderRadius: '3px' }}
         >
           <option value="food">Food</option>
@@ -967,7 +1102,7 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
         </button>
       </div>
     );
-  });
+  };
 
   if (loading) {
     return (
@@ -994,13 +1129,13 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
     return (
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-          <h2>🏠 Welcome back, {userProfile.name || user.email}!</h2>
+          <h2>🏠 Welcome back, {userProfile?.name || user?.email || 'User'}!</h2>
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontSize: '14px', color: '#666' }}>
-              📍 {activeLocation?.city}, {activeLocation?.province}
+              📍 {activeLocation?.city || 'Unknown'}, {activeLocation?.province || 'Unknown'}
             </div>
             <div style={{ fontSize: '12px', color: '#888' }}>
-              {activeLocation?.name} • <button 
+              {activeLocation?.name || 'No location'} • <button 
                 onClick={() => setActiveTab('profile')}
                 style={{ 
                   background: 'none', 
@@ -1151,7 +1286,7 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
 
   const ProfileTab = () => {
     const activeLocation = getActiveLocation();
-    const locations = userProfile.locations || [];
+    const locations = userProfile?.locations || [];
 
     return (
       <div>
@@ -1698,6 +1833,7 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
   const SearchTab = () => {
     const [localSearch, setLocalSearch] = useState('');
     const activeLocation = getActiveLocation();
+    const locations = userProfile.locations || [];
 
     const handleSearch = () => {
       setMedicationSearch(localSearch);
@@ -1713,25 +1849,13 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
     return (
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-          <h2>💊 Smart Medication Search</h2>
+          <h2>💊 AI Multi-Location Search</h2>
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontSize: '14px', color: '#666' }}>
-              📍 Searching in: {activeLocation?.city}, {activeLocation?.province}
+              🔍 Searching across {locations.length} location{locations.length !== 1 ? 's' : ''}
             </div>
             <div style={{ fontSize: '12px', color: '#888' }}>
-              {activeLocation?.name} • <button 
-                onClick={() => setActiveTab('profile')}
-                style={{ 
-                  background: 'none', 
-                  border: 'none', 
-                  color: '#3b82f6', 
-                  cursor: 'pointer', 
-                  textDecoration: 'underline',
-                  fontSize: '12px'
-                }}
-              >
-                Change Location
-              </button>
+              {locations.map(loc => loc.name).join(', ')}
             </div>
           </div>
         </div>
@@ -1744,11 +1868,12 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
           marginBottom: '20px'
         }}>
           <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
-            <input
+            <StableInput
               type="text"
               placeholder="Search for medication (e.g., Panado, Allergex, Grandpa)"
               value={localSearch}
               onChange={(e) => setLocalSearch(e.target.value)}
+              onKeyPress={handleKeyPress}
               style={{ 
                 flex: 1, 
                 padding: '12px', 
@@ -1756,7 +1881,6 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
                 borderRadius: '5px', 
                 border: '1px solid #ccc' 
               }}
-              onKeyPress={handleKeyPress}
             />
             <button
               onClick={handleSearch}
@@ -1770,13 +1894,25 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
                 cursor: 'pointer'
               }}
             >
-              {isSearching ? '🔍 Searching...' : '🔍 Search'}
+              {isSearching ? '🔍 Searching...' : '🔍 Search All Areas'}
             </button>
           </div>
           
           <div style={{ fontSize: '14px', color: '#666' }}>
-            💡 AI-powered search across pharmacies in {activeLocation?.city || 'your area'}
+            🤖 AI searches ALL your saved locations to find the absolute best prices!
           </div>
+          
+          {locations.length > 1 && (
+            <div style={{ 
+              marginTop: '10px', 
+              padding: '10px', 
+              background: '#f0f9ff', 
+              borderRadius: '5px',
+              fontSize: '12px'
+            }}>
+              <strong>Multi-Location Search:</strong> Comparing prices across {locations.map(loc => `${loc?.name || 'Unknown'} (${loc?.city || 'Unknown'})`).join(', ')}
+            </div>
+          )}
         </div>
 
         {medicationResults.length > 0 && (
@@ -1787,19 +1923,66 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
             boxShadow: '0 2px 4px rgba(0,0,0,0.1)' 
           }}>
             <h3 style={{ marginBottom: '20px' }}>
-              📊 Price Comparison Results for "{medicationSearch}"
+              📊 Best Prices for "{medicationSearch}" Across All Your Locations
             </h3>
+            
+            {/* Summary Stats */}
+            <div style={{ 
+              display: 'grid', 
+              gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', 
+              gap: '15px', 
+              marginBottom: '20px' 
+            }}>
+              <div style={{ 
+                background: '#f0fdf4', 
+                padding: '15px', 
+                borderRadius: '8px',
+                textAlign: 'center',
+                border: '1px solid #bbf7d0'
+              }}>
+                <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#22c55e' }}>
+                  R{medicationResults[0]?.price || '0.00'}
+                </div>
+                <div style={{ fontSize: '12px', color: '#666' }}>Best Price Found</div>
+              </div>
+              
+              <div style={{ 
+                background: '#fef3c7', 
+                padding: '15px', 
+                borderRadius: '8px',
+                textAlign: 'center',
+                border: '1px solid #fbbf24'
+              }}>
+                <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#f59e0b' }}>
+                  R{medicationResults.length > 1 ? (parseFloat(medicationResults[medicationResults.length - 1]?.price || 0) - parseFloat(medicationResults[0]?.price || 0)).toFixed(2) : '0.00'}
+                </div>
+                <div style={{ fontSize: '12px', color: '#666' }}>Max Savings</div>
+              </div>
+              
+              <div style={{ 
+                background: '#eff6ff', 
+                padding: '15px', 
+                borderRadius: '8px',
+                textAlign: 'center',
+                border: '1px solid #dbeafe'
+              }}>
+                <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#3b82f6' }}>
+                  {new Set(medicationResults.map(r => r?.city || 'Unknown')).size}
+                </div>
+                <div style={{ fontSize: '12px', color: '#666' }}>Cities Searched</div>
+              </div>
+            </div>
             
             <div style={{ display: 'grid', gap: '15px' }}>
               {medicationResults.map((result, index) => (
-                <div key={index} style={{
+                <div key={`${result.store}-${result.city}-${index}`} style={{
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
                   padding: '15px',
-                  background: index === 0 ? '#f0fdf4' : '#f8fafc',
+                  background: index === 0 ? '#f0fdf4' : result.isActiveLocation ? '#eff6ff' : '#f8fafc',
                   borderRadius: '8px',
-                  border: index === 0 ? '2px solid #22c55e' : '1px solid #e2e8f0',
+                  border: index === 0 ? '2px solid #22c55e' : result.isActiveLocation ? '2px solid #3b82f6' : '1px solid #e2e8f0',
                   position: 'relative'
                 }}>
                   {index === 0 && (
@@ -1814,14 +1997,36 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
                       fontSize: '12px',
                       fontWeight: 'bold'
                     }}>
-                      BEST PRICE
+                      🏆 BEST PRICE
+                    </div>
+                  )}
+                  
+                  {result.isActiveLocation && index !== 0 && (
+                    <div style={{
+                      position: 'absolute',
+                      top: '-10px',
+                      left: '15px',
+                      background: '#3b82f6',
+                      color: 'white',
+                      padding: '2px 8px',
+                      borderRadius: '12px',
+                      fontSize: '12px',
+                      fontWeight: 'bold'
+                    }}>
+                      📍 NEAR YOU
                     </div>
                   )}
                   
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 'bold', fontSize: '16px' }}>{result.store}</div>
-                    <div style={{ fontSize: '14px', color: '#666' }}>{result.location}</div>
-                    <div style={{ fontSize: '12px', color: '#666' }}>📍 {result.distance} away</div>
+                    <div style={{ fontWeight: 'bold', fontSize: '16px', marginBottom: '2px' }}>
+                      {result.store}
+                    </div>
+                    <div style={{ fontSize: '14px', color: '#666', marginBottom: '2px' }}>
+                      📍 {result.location}
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#888' }}>
+                      🗺️ {result.locationName} ({result.city}, {result.province}) • {result.distance} away
+                    </div>
                   </div>
                   
                   <div style={{ textAlign: 'center', margin: '0 20px' }}>
@@ -1837,6 +2042,16 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
                         +R{(parseFloat(result.price) - parseFloat(medicationResults[0].price)).toFixed(2)}
                       </div>
                     )}
+                    <div style={{
+                      fontSize: '11px',
+                      padding: '2px 6px',
+                      borderRadius: '10px',
+                      marginTop: '3px',
+                      background: result.stock === 'In Stock' ? '#dcfce7' : '#fef3c7',
+                      color: result.stock === 'In Stock' ? '#166534' : '#d97706'
+                    }}>
+                      {result.stock}
+                    </div>
                   </div>
                   
                   <div style={{ display: 'flex', gap: '5px' }}>
@@ -1869,6 +2084,21 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
                   </div>
                 </div>
               ))}
+            </div>
+            
+            <div style={{ 
+              marginTop: '20px', 
+              padding: '15px', 
+              background: '#f0f9ff', 
+              borderRadius: '8px',
+              textAlign: 'center'
+            }}>
+              <div style={{ fontWeight: 'bold', color: '#1e40af', marginBottom: '5px' }}>
+                🤖 AI Recommendation: Save R{medicationResults.length > 1 ? (parseFloat(medicationResults[medicationResults.length - 1]?.price || 0) - parseFloat(medicationResults[0]?.price || 0)).toFixed(2) : '0.00'} by choosing the best option!
+              </div>
+              <div style={{ fontSize: '14px', color: '#666' }}>
+                Consider travel time and convenience when making your choice
+              </div>
             </div>
           </div>
         )}
