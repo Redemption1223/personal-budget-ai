@@ -10,12 +10,29 @@ let userDatabase = {
       passwordResetToken: null,
       profile: {
         name: 'Demo User',
-        location: {
-          city: 'Benoni',
-          province: 'Gauteng',
-          country: 'South Africa',
-          coordinates: { lat: -26.1889, lng: 28.3119 }
-        }
+        locations: [
+          {
+            id: 'home',
+            name: 'Home',
+            city: 'Benoni',
+            province: 'Gauteng',
+            country: 'South Africa',
+            coordinates: { lat: -26.1889, lng: 28.3119 },
+            isActive: true,
+            isPrimary: true
+          },
+          {
+            id: 'work',
+            name: 'Work',
+            city: 'Johannesburg',
+            province: 'Gauteng',
+            country: 'South Africa',
+            coordinates: { lat: -26.2041, lng: 28.0473 },
+            isActive: false,
+            isPrimary: false
+          }
+        ],
+        activeLocationId: 'home'
       },
       config: {
         salary: 25000,
@@ -78,12 +95,19 @@ const authService = {
       passwordResetToken: null,
       profile: {
         name: name || 'New User',
-        location: {
-          city: 'Benoni',
-          province: 'Gauteng', 
-          country: 'South Africa',
-          coordinates: { lat: -26.1889, lng: 28.3119 }
-        }
+        locations: [
+          {
+            id: 'home',
+            name: 'Home',
+            city: 'Benoni',
+            province: 'Gauteng',
+            country: 'South Africa',
+            coordinates: { lat: -26.1889, lng: 28.3119 },
+            isActive: true,
+            isPrimary: true
+          }
+        ],
+        activeLocationId: 'home'
       },
       config: {
         salary: 20000,
@@ -572,12 +596,124 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
   const [isSearching, setIsSearching] = useState(false);
 
   // Location management
-  const [editingLocation, setEditingLocation] = useState(false);
+  const [editingLocation, setEditingLocation] = useState(null); // null, 'new', or location id
   const [newLocation, setNewLocation] = useState({
+    name: '',
     city: '',
     province: '',
     country: 'South Africa'
   });
+
+  // Get current active location
+  const getActiveLocation = () => {
+    const locations = userProfile.locations || [];
+    return locations.find(loc => loc.id === userProfile.activeLocationId) || locations[0];
+  };
+
+  // Add new location
+  const addLocation = () => {
+    if (!newLocation.name || !newLocation.city || !newLocation.province) {
+      return;
+    }
+
+    const locationId = `loc-${Date.now()}`;
+    const newLoc = {
+      id: locationId,
+      name: newLocation.name,
+      city: newLocation.city,
+      province: newLocation.province,
+      country: newLocation.country,
+      coordinates: { lat: 0, lng: 0 }, // In real app, geocode this
+      isActive: false,
+      isPrimary: false
+    };
+
+    const updatedProfile = {
+      ...userProfile,
+      locations: [...(userProfile.locations || []), newLoc]
+    };
+
+    saveUserProfile(updatedProfile);
+    setEditingLocation(null);
+    setNewLocation({ name: '', city: '', province: '', country: 'South Africa' });
+  };
+
+  // Update existing location
+  const updateLocation = (locationId) => {
+    if (!newLocation.name || !newLocation.city || !newLocation.province) {
+      return;
+    }
+
+    const updatedProfile = {
+      ...userProfile,
+      locations: (userProfile.locations || []).map(loc => 
+        loc.id === locationId 
+          ? {
+              ...loc,
+              name: newLocation.name,
+              city: newLocation.city,
+              province: newLocation.province,
+              country: newLocation.country
+            }
+          : loc
+      )
+    };
+
+    saveUserProfile(updatedProfile);
+    setEditingLocation(null);
+    setNewLocation({ name: '', city: '', province: '', country: 'South Africa' });
+  };
+
+  // Delete location
+  const deleteLocation = (locationId) => {
+    const locations = userProfile.locations || [];
+    if (locations.length <= 1) {
+      alert('You must have at least one location');
+      return;
+    }
+
+    const locationToDelete = locations.find(loc => loc.id === locationId);
+    if (locationToDelete?.isPrimary) {
+      alert('Cannot delete your primary location. Set another location as primary first.');
+      return;
+    }
+
+    let updatedProfile = {
+      ...userProfile,
+      locations: locations.filter(loc => loc.id !== locationId)
+    };
+
+    // If deleting active location, switch to primary
+    if (userProfile.activeLocationId === locationId) {
+      const primaryLocation = updatedProfile.locations.find(loc => loc.isPrimary);
+      updatedProfile.activeLocationId = primaryLocation?.id || updatedProfile.locations[0]?.id;
+    }
+
+    saveUserProfile(updatedProfile);
+  };
+
+  // Switch active location
+  const switchActiveLocation = (locationId) => {
+    const updatedProfile = {
+      ...userProfile,
+      activeLocationId: locationId
+    };
+
+    saveUserProfile(updatedProfile);
+  };
+
+  // Set primary location
+  const setPrimaryLocation = (locationId) => {
+    const updatedProfile = {
+      ...userProfile,
+      locations: (userProfile.locations || []).map(loc => ({
+        ...loc,
+        isPrimary: loc.id === locationId
+      }))
+    };
+
+    saveUserProfile(updatedProfile);
+  };
 
   // Load user data on mount
   useEffect(() => {
@@ -626,7 +762,8 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
     
     setTimeout(() => {
       const basePrice = Math.random() * 50 + 20;
-      const userLocation = userProfile.location?.city || 'Benoni';
+      const activeLocation = getActiveLocation();
+      const userLocation = activeLocation?.city || 'Benoni';
       
       const pharmacies = [
         { name: 'Dis-Chem', multiplier: 0.95, location: `${userLocation} City`, distance: '2.1km', phone: '011-421-0000' },
@@ -649,24 +786,9 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
       setMedicationResults(results);
       setIsSearching(false);
     }, 1500);
-  }, [userProfile.location]);
+  }, [userProfile, getActiveLocation]);
 
-  // Update location
-  const handleLocationUpdate = () => {
-    const updatedProfile = {
-      ...userProfile,
-      location: {
-        ...userProfile.location,
-        city: newLocation.city,
-        province: newLocation.province,
-        country: newLocation.country
-      }
-    };
-    
-    saveUserProfile(updatedProfile);
-    setEditingLocation(false);
-    setNewLocation({ city: '', province: '', country: 'South Africa' });
-  };
+
 
   // Generate personalized meal plan
   const generatePersonalizedMealPlan = useMemo(() => {
@@ -867,13 +989,31 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
   const DashboardTab = () => {
     const totalAllocated = Object.values(userConfig.categories || {}).reduce((sum, val) => sum + (val || 0), 0);
     const remaining = (userConfig.salary || 0) - totalAllocated - (userConfig.savingsGoal || 0);
+    const activeLocation = getActiveLocation();
     
     return (
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
           <h2>🏠 Welcome back, {userProfile.name || user.email}!</h2>
-          <div style={{ fontSize: '14px', color: '#666' }}>
-            📍 {userProfile.location?.city}, {userProfile.location?.province}
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: '14px', color: '#666' }}>
+              📍 {activeLocation?.city}, {activeLocation?.province}
+            </div>
+            <div style={{ fontSize: '12px', color: '#888' }}>
+              {activeLocation?.name} • <button 
+                onClick={() => setActiveTab('profile')}
+                style={{ 
+                  background: 'none', 
+                  border: 'none', 
+                  color: '#3b82f6', 
+                  cursor: 'pointer', 
+                  textDecoration: 'underline',
+                  fontSize: '12px'
+                }}
+              >
+                Switch Location
+              </button>
+            </div>
           </div>
         </div>
 
@@ -987,7 +1127,7 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
                 Smart Medication Price Search
               </div>
               <div style={{ fontSize: '14px', color: '#666' }}>
-                Find the best prices in {userProfile.location?.city || 'your area'}
+                Find the best prices in {activeLocation?.city || 'your area'}
               </div>
             </div>
             <button 
@@ -1009,214 +1149,408 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
     );
   };
 
-  const ProfileTab = () => (
-    <div>
-      <h2 style={{ marginBottom: '20px' }}>👤 Profile & Location Settings</h2>
-      
-      <div style={{ 
-        background: 'white', 
-        padding: '20px', 
-        borderRadius: '10px', 
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-        marginBottom: '20px'
-      }}>
-        <h3 style={{ marginBottom: '20px', color: '#3b82f6' }}>Personal Information</h3>
+  const ProfileTab = () => {
+    const activeLocation = getActiveLocation();
+    const locations = userProfile.locations || [];
+
+    return (
+      <div>
+        <h2 style={{ marginBottom: '20px' }}>👤 Profile & Location Settings</h2>
+        
         <div style={{ 
-          display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', 
-          gap: '20px'
+          background: 'white', 
+          padding: '20px', 
+          borderRadius: '10px', 
+          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+          marginBottom: '20px'
         }}>
-          <div>
-            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Name</label>
-            <StableInput
-              type="text"
-              value={userProfile.name || ''}
-              onChange={(e) => {
-                const newProfile = {...userProfile, name: e.target.value};
-                saveUserProfile(newProfile);
-              }}
-              style={{ 
-                width: '100%', 
-                padding: '12px', 
-                border: '1px solid #ccc', 
-                borderRadius: '5px',
-                fontSize: '16px',
-                boxSizing: 'border-box'
-              }}
-            />
-          </div>
-          
-          <div>
-            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Email</label>
-            <input
-              type="email"
-              value={user.email}
-              disabled
-              style={{ 
-                width: '100%', 
-                padding: '12px', 
-                border: '1px solid #ccc', 
-                borderRadius: '5px',
-                fontSize: '16px',
-                boxSizing: 'border-box',
-                background: '#f5f5f5',
-                color: '#666'
-              }}
-            />
-          </div>
-        </div>
-      </div>
-
-      <div style={{ 
-        background: 'white', 
-        padding: '20px', 
-        borderRadius: '10px', 
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-        marginBottom: '20px'
-      }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-          <h3 style={{ color: '#10b981' }}>📍 Location Settings</h3>
-          <button
-            onClick={() => {
-              setEditingLocation(true);
-              setNewLocation({
-                city: userProfile.location?.city || '',
-                province: userProfile.location?.province || '',
-                country: userProfile.location?.country || 'South Africa'
-              });
-            }}
-            style={{
-              background: '#10b981',
-              color: 'white',
-              border: 'none',
-              padding: '8px 16px',
-              borderRadius: '5px',
-              cursor: 'pointer'
-            }}
-          >
-            ✏️ Edit Location
-          </button>
-        </div>
-
-        {editingLocation ? (
-          <div>
-            <div style={{ 
-              display: 'grid', 
-              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
-              gap: '15px',
-              marginBottom: '15px'
-            }}>
-              <div>
-                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>City</label>
-                <input
-                  type="text"
-                  value={newLocation.city}
-                  onChange={(e) => setNewLocation({...newLocation, city: e.target.value})}
-                  placeholder="e.g. Benoni"
-                  style={{ 
-                    width: '100%', 
-                    padding: '12px', 
-                    border: '1px solid #ccc', 
-                    borderRadius: '5px',
-                    fontSize: '16px',
-                    boxSizing: 'border-box'
-                  }}
-                />
-              </div>
-              
-              <div>
-                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Province</label>
-                <select
-                  value={newLocation.province}
-                  onChange={(e) => setNewLocation({...newLocation, province: e.target.value})}
-                  style={{ 
-                    width: '100%', 
-                    padding: '12px', 
-                    border: '1px solid #ccc', 
-                    borderRadius: '5px',
-                    fontSize: '16px',
-                    boxSizing: 'border-box'
-                  }}
-                >
-                  <option value="">Select Province</option>
-                  <option value="Gauteng">Gauteng</option>
-                  <option value="Western Cape">Western Cape</option>
-                  <option value="KwaZulu-Natal">KwaZulu-Natal</option>
-                  <option value="Eastern Cape">Eastern Cape</option>
-                  <option value="Free State">Free State</option>
-                  <option value="Limpopo">Limpopo</option>
-                  <option value="Mpumalanga">Mpumalanga</option>
-                  <option value="Northern Cape">Northern Cape</option>
-                  <option value="North West">North West</option>
-                </select>
-              </div>
-              
-              <div>
-                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Country</label>
-                <input
-                  type="text"
-                  value={newLocation.country}
-                  onChange={(e) => setNewLocation({...newLocation, country: e.target.value})}
-                  style={{ 
-                    width: '100%', 
-                    padding: '12px', 
-                    border: '1px solid #ccc', 
-                    borderRadius: '5px',
-                    fontSize: '16px',
-                    boxSizing: 'border-box'
-                  }}
-                />
-              </div>
+          <h3 style={{ marginBottom: '20px', color: '#3b82f6' }}>Personal Information</h3>
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', 
+            gap: '20px'
+          }}>
+            <div>
+              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Name</label>
+              <StableInput
+                type="text"
+                value={userProfile.name || ''}
+                onChange={(e) => {
+                  const newProfile = {...userProfile, name: e.target.value};
+                  saveUserProfile(newProfile);
+                }}
+                style={{ 
+                  width: '100%', 
+                  padding: '12px', 
+                  border: '1px solid #ccc', 
+                  borderRadius: '5px',
+                  fontSize: '16px',
+                  boxSizing: 'border-box'
+                }}
+              />
             </div>
             
-            <div style={{ display: 'flex', gap: '10px' }}>
-              <button
-                onClick={handleLocationUpdate}
-                style={{
-                  background: '#10b981',
-                  color: 'white',
-                  border: 'none',
-                  padding: '10px 20px',
+            <div>
+              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Email</label>
+              <input
+                type="email"
+                value={user.email}
+                disabled
+                style={{ 
+                  width: '100%', 
+                  padding: '12px', 
+                  border: '1px solid #ccc', 
                   borderRadius: '5px',
-                  cursor: 'pointer'
+                  fontSize: '16px',
+                  boxSizing: 'border-box',
+                  background: '#f5f5f5',
+                  color: '#666'
                 }}
-              >
-                ✅ Save Location
-              </button>
-              <button
-                onClick={() => setEditingLocation(false)}
-                style={{
-                  background: '#6b7280',
-                  color: 'white',
-                  border: 'none',
-                  padding: '10px 20px',
-                  borderRadius: '5px',
-                  cursor: 'pointer'
-                }}
-              >
-                ❌ Cancel
-              </button>
+              />
             </div>
           </div>
-        ) : (
+        </div>
+
+        {/* Active Location Selector */}
+        <div style={{ 
+          background: 'white', 
+          padding: '20px', 
+          borderRadius: '10px', 
+          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+          marginBottom: '20px'
+        }}>
+          <h3 style={{ marginBottom: '20px', color: '#10b981' }}>📍 Current Active Location</h3>
+          
           <div style={{ 
             padding: '15px', 
-            background: '#f8fafc', 
+            background: '#f0fdf4', 
             borderRadius: '8px',
-            border: '1px solid #e2e8f0'
+            border: '2px solid #22c55e',
+            marginBottom: '20px'
           }}>
-            <div style={{ fontWeight: 'bold', marginBottom: '5px' }}>Current Location:</div>
-            <div style={{ color: '#666' }}>
-              📍 {userProfile.location?.city || 'Not set'}, {userProfile.location?.province || 'Not set'}, {userProfile.location?.country || 'South Africa'}
-            </div>
-            <div style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
-              This helps us find deals and services near you
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontWeight: 'bold', fontSize: '16px' }}>
+                  📍 {activeLocation?.name} 
+                  {activeLocation?.isPrimary && <span style={{ color: '#f59e0b', marginLeft: '10px' }}>⭐ Primary</span>}
+                </div>
+                <div style={{ color: '#666', fontSize: '14px' }}>
+                  {activeLocation?.city}, {activeLocation?.province}, {activeLocation?.country}
+                </div>
+                <div style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
+                  Currently used for searches and local deals
+                </div>
+              </div>
+              <div style={{ fontSize: '24px' }}>🎯</div>
             </div>
           </div>
-        )}
+
+          {locations.length > 1 && (
+            <div>
+              <div style={{ fontWeight: 'bold', marginBottom: '10px' }}>Switch to:</div>
+              <div style={{ display: 'grid', gap: '10px' }}>
+                {locations.filter(loc => loc.id !== activeLocation?.id).map(location => (
+                  <div key={location.id} style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    padding: '10px',
+                    background: '#f8fafc',
+                    borderRadius: '5px',
+                    border: '1px solid #e2e8f0'
+                  }}>
+                    <div>
+                      <div style={{ fontWeight: 'bold' }}>
+                        {location.name} 
+                        {location.isPrimary && <span style={{ color: '#f59e0b', marginLeft: '10px' }}>⭐</span>}
+                      </div>
+                      <div style={{ fontSize: '14px', color: '#666' }}>
+                        {location.city}, {location.province}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => switchActiveLocation(location.id)}
+                      style={{
+                        background: '#3b82f6',
+                        color: 'white',
+                        border: 'none',
+                        padding: '5px 10px',
+                        borderRadius: '3px',
+                        cursor: 'pointer',
+                        fontSize: '12px'
+                      }}
+                    >
+                      Switch Here
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Manage All Locations */}
+        <div style={{ 
+          background: 'white', 
+          padding: '20px', 
+          borderRadius: '10px', 
+          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+          marginBottom: '20px'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <h3 style={{ color: '#8b5cf6' }}>🗺️ Manage All Locations</h3>
+            <button
+              onClick={() => {
+                setEditingLocation('new');
+                setNewLocation({ name: '', city: '', province: '', country: 'South Africa' });
+              }}
+              style={{
+                background: '#10b981',
+                color: 'white',
+                border: 'none',
+                padding: '8px 16px',
+                borderRadius: '5px',
+                cursor: 'pointer'
+              }}
+            >
+              ➕ Add New Location
+            </button>
+          </div>
+
+          {/* Location List */}
+          <div style={{ display: 'grid', gap: '10px', marginBottom: '20px' }}>
+            {locations.map(location => (
+              <div key={location.id} style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '15px',
+                background: location.id === activeLocation?.id ? '#eff6ff' : '#f8fafc',
+                borderRadius: '8px',
+                border: location.id === activeLocation?.id ? '2px solid #3b82f6' : '1px solid #e2e8f0'
+              }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    {location.name}
+                    {location.isPrimary && <span style={{ color: '#f59e0b' }}>⭐ Primary</span>}
+                    {location.id === activeLocation?.id && <span style={{ color: '#3b82f6' }}>🎯 Active</span>}
+                  </div>
+                  <div style={{ fontSize: '14px', color: '#666' }}>
+                    {location.city}, {location.province}, {location.country}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: '5px' }}>
+                  {!location.isPrimary && (
+                    <button
+                      onClick={() => setPrimaryLocation(location.id)}
+                      style={{
+                        background: '#f59e0b',
+                        color: 'white',
+                        border: 'none',
+                        padding: '5px 8px',
+                        borderRadius: '3px',
+                        cursor: 'pointer',
+                        fontSize: '11px'
+                      }}
+                      title="Set as primary location"
+                    >
+                      ⭐ Primary
+                    </button>
+                  )}
+                  <button
+                    onClick={() => {
+                      setEditingLocation(location.id);
+                      setNewLocation({
+                        name: location.name,
+                        city: location.city,
+                        province: location.province,
+                        country: location.country
+                      });
+                    }}
+                    style={{
+                      background: '#6b7280',
+                      color: 'white',
+                      border: 'none',
+                      padding: '5px 8px',
+                      borderRadius: '3px',
+                      cursor: 'pointer',
+                      fontSize: '11px'
+                    }}
+                  >
+                    ✏️ Edit
+                  </button>
+                  <button
+                    onClick={() => deleteLocation(location.id)}
+                    disabled={location.isPrimary || locations.length <= 1}
+                    style={{
+                      background: location.isPrimary || locations.length <= 1 ? '#ccc' : '#ef4444',
+                      color: 'white',
+                      border: 'none',
+                      padding: '5px 8px',
+                      borderRadius: '3px',
+                      cursor: location.isPrimary || locations.length <= 1 ? 'not-allowed' : 'pointer',
+                      fontSize: '11px'
+                    }}
+                  >
+                    🗑️ Delete
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Add/Edit Location Form */}
+          {editingLocation && (
+            <div style={{ 
+              padding: '20px', 
+              background: '#f8fafc', 
+              borderRadius: '8px',
+              border: '1px solid #e2e8f0' 
+            }}>
+              <h4 style={{ marginBottom: '15px' }}>
+                {editingLocation === 'new' ? '➕ Add New Location' : '✏️ Edit Location'}
+              </h4>
+              
+              <div style={{ 
+                display: 'grid', 
+                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
+                gap: '15px',
+                marginBottom: '15px'
+              }}>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Location Name</label>
+                  <input
+                    type="text"
+                    value={newLocation.name}
+                    onChange={(e) => setNewLocation({...newLocation, name: e.target.value})}
+                    placeholder="e.g. Home, Work, Parents"
+                    style={{ 
+                      width: '100%', 
+                      padding: '10px', 
+                      border: '1px solid #ccc', 
+                      borderRadius: '5px',
+                      fontSize: '14px',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+                
+                <div>
+                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>City</label>
+                  <input
+                    type="text"
+                    value={newLocation.city}
+                    onChange={(e) => setNewLocation({...newLocation, city: e.target.value})}
+                    placeholder="e.g. Benoni"
+                    style={{ 
+                      width: '100%', 
+                      padding: '10px', 
+                      border: '1px solid #ccc', 
+                      borderRadius: '5px',
+                      fontSize: '14px',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+                
+                <div>
+                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Province</label>
+                  <select
+                    value={newLocation.province}
+                    onChange={(e) => setNewLocation({...newLocation, province: e.target.value})}
+                    style={{ 
+                      width: '100%', 
+                      padding: '10px', 
+                      border: '1px solid #ccc', 
+                      borderRadius: '5px',
+                      fontSize: '14px',
+                      boxSizing: 'border-box'
+                    }}
+                  >
+                    <option value="">Select Province</option>
+                    <option value="Gauteng">Gauteng</option>
+                    <option value="Western Cape">Western Cape</option>
+                    <option value="KwaZulu-Natal">KwaZulu-Natal</option>
+                    <option value="Eastern Cape">Eastern Cape</option>
+                    <option value="Free State">Free State</option>
+                    <option value="Limpopo">Limpopo</option>
+                    <option value="Mpumalanga">Mpumalanga</option>
+                    <option value="Northern Cape">Northern Cape</option>
+                    <option value="North West">North West</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Country</label>
+                  <input
+                    type="text"
+                    value={newLocation.country}
+                    onChange={(e) => setNewLocation({...newLocation, country: e.target.value})}
+                    style={{ 
+                      width: '100%', 
+                      padding: '10px', 
+                      border: '1px solid #ccc', 
+                      borderRadius: '5px',
+                      fontSize: '14px',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+              </div>
+              
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button
+                  onClick={() => editingLocation === 'new' ? addLocation() : updateLocation(editingLocation)}
+                  style={{
+                    background: '#10b981',
+                    color: 'white',
+                    border: 'none',
+                    padding: '10px 20px',
+                    borderRadius: '5px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {editingLocation === 'new' ? '✅ Add Location' : '✅ Save Changes'}
+                </button>
+                <button
+                  onClick={() => {
+                    setEditingLocation(null);
+                    setNewLocation({ name: '', city: '', province: '', country: 'South Africa' });
+                  }}
+                  style={{
+                    background: '#6b7280',
+                    color: 'white',
+                    border: 'none',
+                    padding: '10px 20px',
+                    borderRadius: '5px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  ❌ Cancel
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div style={{ 
+          padding: '15px', 
+          background: '#fef3c7', 
+          borderRadius: '8px',
+          border: '1px solid #fbbf24',
+          fontSize: '14px'
+        }}>
+          <div style={{ fontWeight: 'bold', marginBottom: '5px' }}>💡 How Multiple Locations Work:</div>
+          <div style={{ color: '#666' }}>
+            • <strong>Primary Location:</strong> Your main address (starred ⭐)<br/>
+            • <strong>Active Location:</strong> Currently used for searches and deals (🎯)<br/>
+            • <strong>Switch anytime:</strong> Change active location to search nearby areas<br/>
+            • <strong>Location-specific:</strong> Prices and deals adapt to your active location
+          </div>
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const ConfigTab = () => (
     <div>
@@ -1306,7 +1640,7 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
       }}>
         <h3 style={{ marginBottom: '20px' }}>🛒 My Usual Items</h3>
         <p style={{ color: '#666', marginBottom: '20px' }}>
-          Add items you regularly buy so AI can find better prices in {userProfile.location?.city || 'your area'}
+          Add items you regularly buy so AI can find better prices in {activeLocation?.city || 'your area'}
         </p>
         
         <div style={{ marginBottom: '15px', fontWeight: 'bold', display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr auto', gap: '10px' }}>
@@ -1363,6 +1697,7 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
 
   const SearchTab = () => {
     const [localSearch, setLocalSearch] = useState('');
+    const activeLocation = getActiveLocation();
 
     const handleSearch = () => {
       setMedicationSearch(localSearch);
@@ -1377,7 +1712,29 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
 
     return (
       <div>
-        <h2 style={{ marginBottom: '20px' }}>💊 Smart Medication Search</h2>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          <h2>💊 Smart Medication Search</h2>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: '14px', color: '#666' }}>
+              📍 Searching in: {activeLocation?.city}, {activeLocation?.province}
+            </div>
+            <div style={{ fontSize: '12px', color: '#888' }}>
+              {activeLocation?.name} • <button 
+                onClick={() => setActiveTab('profile')}
+                style={{ 
+                  background: 'none', 
+                  border: 'none', 
+                  color: '#3b82f6', 
+                  cursor: 'pointer', 
+                  textDecoration: 'underline',
+                  fontSize: '12px'
+                }}
+              >
+                Change Location
+              </button>
+            </div>
+          </div>
+        </div>
         
         <div style={{ 
           background: 'white', 
@@ -1418,7 +1775,7 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
           </div>
           
           <div style={{ fontSize: '14px', color: '#666' }}>
-            💡 AI-powered search across pharmacies in {userProfile.location?.city || 'your area'}
+            💡 AI-powered search across pharmacies in {activeLocation?.city || 'your area'}
           </div>
         </div>
 
