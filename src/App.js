@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 
-// Simulated user database (replace with Firebase in production)
+// Simulated user database
 let userDatabase = {
   users: {
     'demo@example.com': {
@@ -60,30 +60,22 @@ let userDatabase = {
   }
 };
 
-// Simulated auth service
+// Auth service
 const authService = {
   currentUser: null,
   
   signIn: async (email, password) => {
     await new Promise(resolve => setTimeout(resolve, 500));
-    
     const user = userDatabase.users[email.toLowerCase()];
     if (!user || user.password !== password) {
       throw new Error('Invalid email or password');
     }
-    
-    authService.currentUser = {
-      id: user.id,
-      email: user.email,
-      profile: user.profile
-    };
-    
+    authService.currentUser = { id: user.id, email: user.email, profile: user.profile };
     return authService.currentUser;
   },
   
   signUp: async (email, password, name) => {
     await new Promise(resolve => setTimeout(resolve, 500));
-    
     if (userDatabase.users[email.toLowerCase()]) {
       throw new Error('User already exists');
     }
@@ -96,78 +88,49 @@ const authService = {
       passwordResetToken: null,
       profile: {
         name: name || 'New User',
-        locations: [
-          {
-            id: 'home',
-            name: 'Home',
-            city: 'Benoni',
-            province: 'Gauteng',
-            country: 'South Africa',
-            coordinates: { lat: -26.1889, lng: 28.3119 },
-            isActive: true,
-            isPrimary: true
-          }
-        ],
+        locations: [{
+          id: 'home', name: 'Home', city: 'Benoni', province: 'Gauteng', country: 'South Africa',
+          coordinates: { lat: -26.1889, lng: 28.3119 }, isActive: true, isPrimary: true
+        }],
         activeLocationId: 'home'
       },
       config: {
-        salary: 20000,
-        people: 1,
-        savingsGoal: 2000,
+        salary: 20000, people: 1, savingsGoal: 2000,
         categories: {
           rent: 6000, electricity: 600, water: 300, gas: 150, internet: 599,
           food: 4000, cleaning: 300, medication: 400, petcare: 0,
           transport: 1000, fuel: 800, entertainment: 400, clothing: 300, other: 500
         },
         usualItems: [],
-        foodPreferences: {
-          proteins: ['chicken', 'eggs'],
-          vegetables: ['potatoes', 'onions'],
-          grains: ['rice', 'pap']
-        },
-        medications: [],
-        pets: []
+        foodPreferences: { proteins: ['chicken', 'eggs'], vegetables: ['potatoes', 'onions'], grains: ['rice', 'pap'] },
+        medications: [], pets: []
       },
       shoppingCart: []
     };
     
     userDatabase.users[email.toLowerCase()] = newUser;
-    
-    authService.currentUser = {
-      id: newUser.id,
-      email: newUser.email,
-      profile: newUser.profile
-    };
-    
+    authService.currentUser = { id: newUser.id, email: newUser.email, profile: newUser.profile };
     return authService.currentUser;
   },
   
   sendPasswordReset: async (email) => {
     await new Promise(resolve => setTimeout(resolve, 1000));
-    
     const user = userDatabase.users[email.toLowerCase()];
-    if (!user) {
-      throw new Error('No user found with this email address');
-    }
-    
+    if (!user) throw new Error('No user found with this email address');
     const resetToken = Math.random().toString(36).substring(2, 15);
     user.passwordResetToken = resetToken;
-    
     console.log(`Password reset token for ${email}: ${resetToken}`);
     return { message: 'Password reset email sent successfully' };
   },
   
   resetPassword: async (email, token, newPassword) => {
     await new Promise(resolve => setTimeout(resolve, 500));
-    
     const user = userDatabase.users[email.toLowerCase()];
     if (!user || user.passwordResetToken !== token) {
       throw new Error('Invalid or expired reset token');
     }
-    
     user.password = newPassword;
     user.passwordResetToken = null;
-    
     return { message: 'Password reset successfully' };
   },
   
@@ -177,7 +140,7 @@ const authService = {
   }
 };
 
-// Database service for user data
+// Database service
 const dbService = {
   getUserConfig: async (userId) => {
     const user = Object.values(userDatabase.users).find(u => u.id === userId);
@@ -188,7 +151,6 @@ const dbService = {
     const user = Object.values(userDatabase.users).find(u => u.id === userId);
     if (user) {
       user.config = { ...user.config, ...config };
-      console.log('Config saved:', user.config);
     }
   },
   
@@ -201,7 +163,6 @@ const dbService = {
     const user = Object.values(userDatabase.users).find(u => u.id === userId);
     if (user) {
       user.profile = { ...user.profile, ...profile };
-      console.log('Profile saved:', user.profile);
     }
   },
 
@@ -214,12 +175,11 @@ const dbService = {
     const user = Object.values(userDatabase.users).find(u => u.id === userId);
     if (user) {
       user.shoppingCart = cart;
-      console.log('Shopping cart saved:', user.shoppingCart);
     }
   }
 };
 
-// Special search input that updates immediately for better UX
+// Input components
 const SearchInput = ({ value = '', onChange, onKeyPress, placeholder, disabled, style, type = "text", min, ...props }) => {
   const [localValue, setLocalValue] = useState(value);
 
@@ -230,16 +190,8 @@ const SearchInput = ({ value = '', onChange, onKeyPress, placeholder, disabled, 
   const handleChange = (e) => {
     const newValue = e.target.value;
     setLocalValue(newValue);
-    
-    // Update search immediately for better UX
     if (onChange) {
       onChange({ target: { value: newValue } });
-    }
-  };
-
-  const handleKeyPress = (e) => {
-    if (onKeyPress) {
-      onKeyPress(e);
     }
   };
 
@@ -249,7 +201,7 @@ const SearchInput = ({ value = '', onChange, onKeyPress, placeholder, disabled, 
       min={min}
       value={localValue}
       onChange={handleChange}
-      onKeyPress={handleKeyPress}
+      onKeyPress={onKeyPress}
       placeholder={placeholder}
       disabled={disabled}
       style={style}
@@ -258,12 +210,10 @@ const SearchInput = ({ value = '', onChange, onKeyPress, placeholder, disabled, 
   );
 };
 
-// Improved input component with better state management
 const FixedInput = ({ value = '', onChange, onBlur, onKeyPress, placeholder, disabled, style, type = "text", min, ...props }) => {
   const [localValue, setLocalValue] = useState(value);
   const [isFocused, setIsFocused] = useState(false);
 
-  // Sync with external value when not focused
   useEffect(() => {
     if (!isFocused) {
       setLocalValue(value);
@@ -280,11 +230,9 @@ const FixedInput = ({ value = '', onChange, onBlur, onKeyPress, placeholder, dis
 
   const handleBlur = (e) => {
     setIsFocused(false);
-    
     if (onChange && localValue !== value) {
       onChange({ target: { value: localValue } });
     }
-    
     if (onBlur) {
       onBlur(e);
     }
@@ -294,7 +242,6 @@ const FixedInput = ({ value = '', onChange, onBlur, onKeyPress, placeholder, dis
     if (e.key === 'Enter' && onChange && localValue !== value) {
       onChange({ target: { value: localValue } });
     }
-    
     if (onKeyPress) {
       onKeyPress(e);
     }
@@ -317,13 +264,11 @@ const FixedInput = ({ value = '', onChange, onBlur, onKeyPress, placeholder, dis
   );
 };
 
-// Enhanced mock web search function with real-time product searches
+// Mock web search function
 const mockWebSearch = async (query, locations) => {
   await new Promise(resolve => setTimeout(resolve, 2000));
   
   const results = [];
-  
-  // Common South African stores with realistic data
   const storeData = {
     'Pick n Pay': { type: 'supermarket', multiplier: 1.0, phone: '0800-11-22-88' },
     'Shoprite': { type: 'supermarket', multiplier: 0.95, phone: '0800-01-43-77' },
@@ -336,11 +281,8 @@ const mockWebSearch = async (query, locations) => {
     'Makro': { type: 'wholesale', multiplier: 0.88, phone: '0860-100-006' }
   };
 
-  // Product-specific pricing logic
   const getBasePrice = (query) => {
     const productName = query.toLowerCase();
-    
-    // Common products with realistic South African pricing
     if (productName.includes('bread') || productName.includes('loaf')) return 18.99;
     if (productName.includes('milk') && productName.includes('2l')) return 24.99;
     if (productName.includes('milk') && productName.includes('1l')) return 16.99;
@@ -350,17 +292,6 @@ const mockWebSearch = async (query, locations) => {
     if (productName.includes('chicken') && productName.includes('kg')) return 89.99;
     if (productName.includes('potatoes') && productName.includes('kg')) return 22.99;
     if (productName.includes('onions') && productName.includes('kg')) return 18.99;
-    if (productName.includes('oil') && productName.includes('l')) return 65.99;
-    if (productName.includes('sugar') && productName.includes('kg')) return 21.99;
-    if (productName.includes('flour') && productName.includes('kg')) return 19.99;
-    if (productName.includes('tea') && productName.includes('bags')) return 32.99;
-    if (productName.includes('coffee')) return 78.99;
-    if (productName.includes('toothpaste')) return 25.99;
-    if (productName.includes('shampoo')) return 45.99;
-    if (productName.includes('soap')) return 12.99;
-    if (productName.includes('detergent')) return 89.99;
-    
-    // Default pricing for unknown products
     return 25.99 + Math.random() * 50;
   };
 
@@ -370,8 +301,7 @@ const mockWebSearch = async (query, locations) => {
       const locationMultiplier = location.city === 'Johannesburg' ? 1.08 : 1.0;
       const finalPrice = basePrice * storeInfo.multiplier * locationMultiplier;
       
-      // Some stores might not have all products
-      if (Math.random() > 0.15) { // 85% chance store has the product
+      if (Math.random() > 0.15) {
         results.push({
           product: query,
           name: query,
@@ -415,31 +345,18 @@ function App() {
     }, 1000);
   }, []);
 
-  const handleEmailChange = (e) => {
-    setEmail(e.target.value);
-  };
-
-  const handlePasswordChange = (e) => {
-    setPassword(e.target.value);
-  };
-
-  const handleNameChange = (e) => {
-    setName(e.target.value);
-  };
-
-  const handleResetEmailChange = (e) => {
-    setResetEmail(e.target.value);
-  };
+  const handleEmailChange = (e) => setEmail(e.target.value);
+  const handlePasswordChange = (e) => setPassword(e.target.value);
+  const handleNameChange = (e) => setName(e.target.value);
+  const handleResetEmailChange = (e) => setResetEmail(e.target.value);
 
   const handleLogin = async () => {
     if (!email || !password) {
       setError('Please enter both email and password');
       return;
     }
-    
     setIsLoading(true);
     setError('');
-    
     try {
       const result = await authService.signIn(email, password);
       setUser(result);
@@ -455,15 +372,12 @@ function App() {
       setError('Please fill in all fields');
       return;
     }
-    
     if (password.length < 6) {
       setError('Password must be at least 6 characters');
       return;
     }
-    
     setIsLoading(true);
     setError('');
-    
     try {
       const result = await authService.signUp(email, password, name);
       setUser(result);
@@ -479,11 +393,9 @@ function App() {
       setError('Please enter your email address');
       return;
     }
-    
     setIsLoading(true);
     setError('');
     setResetMessage('');
-    
     try {
       await authService.sendPasswordReset(resetEmail);
       setResetMessage('Password reset instructions sent to your email! Check your inbox.');
@@ -794,14 +706,10 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
   const [userProfile, setUserProfile] = useState(user.profile || {});
   const [shoppingCart, setShoppingCart] = useState([]);
   const [loading, setLoading] = useState(true);
-
-  // Search states
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState('');
-
-  // Location management
   const [editingLocation, setEditingLocation] = useState(null);
   const [locationForm, setLocationForm] = useState({
     name: '',
@@ -810,16 +718,13 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
     country: 'South Africa'
   });
 
-  // Get current active location
   const getActiveLocation = useCallback(() => {
     const locations = userProfile?.locations || [];
     if (locations.length === 0) return null;
-    
     const activeLocation = locations.find(loc => loc?.id === userProfile?.activeLocationId);
     return activeLocation || locations[0] || null;
   }, [userProfile]);
 
-  // Load user data on mount
   useEffect(() => {
     const loadUserData = async () => {
       try {
@@ -836,11 +741,9 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
         setLoading(false);
       }
     };
-    
     loadUserData();
   }, [user.id]);
 
-  // Save functions with proper state management
   const saveUserConfig = useCallback(async (newConfig) => {
     try {
       const updatedConfig = { ...userConfig, ...newConfig };
@@ -870,12 +773,8 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
     }
   }, [user.id]);
 
-  // Location management functions
   const handleLocationFormChange = (field, value) => {
-    setLocationForm(prev => ({
-      ...prev,
-      [field]: value
-    }));
+    setLocationForm(prev => ({ ...prev, [field]: value }));
   };
 
   const addLocation = () => {
@@ -883,7 +782,6 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
       alert('Please fill in all required fields');
       return;
     }
-
     const locationId = `loc-${Date.now()}`;
     const newLoc = {
       id: locationId,
@@ -895,7 +793,6 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
       isActive: false,
       isPrimary: false
     };
-
     const updatedLocations = [...(userProfile.locations || []), newLoc];
     saveUserProfile({ locations: updatedLocations });
     setEditingLocation(null);
@@ -907,19 +804,11 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
       alert('Please fill in all required fields');
       return;
     }
-
     const updatedLocations = (userProfile.locations || []).map(loc => 
       loc.id === locationId 
-        ? {
-            ...loc,
-            name: locationForm.name.trim(),
-            city: locationForm.city.trim(),
-            province: locationForm.province,
-            country: locationForm.country
-          }
+        ? { ...loc, name: locationForm.name.trim(), city: locationForm.city.trim(), province: locationForm.province, country: locationForm.country }
         : loc
     );
-
     saveUserProfile({ locations: updatedLocations });
     setEditingLocation(null);
     setLocationForm({ name: '', city: '', province: '', country: 'South Africa' });
@@ -931,21 +820,17 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
       alert('You must have at least one location');
       return;
     }
-
     const locationToDelete = locations.find(loc => loc.id === locationId);
     if (locationToDelete?.isPrimary) {
       alert('Cannot delete your primary location. Set another location as primary first.');
       return;
     }
-
     const updatedLocations = locations.filter(loc => loc.id !== locationId);
     let updatedProfile = { locations: updatedLocations };
-
     if (userProfile.activeLocationId === locationId) {
       const primaryLocation = updatedLocations.find(loc => loc.isPrimary);
       updatedProfile.activeLocationId = primaryLocation?.id || updatedLocations[0]?.id;
     }
-
     saveUserProfile(updatedProfile);
   };
 
@@ -958,21 +843,17 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
       ...loc,
       isPrimary: loc.id === locationId
     }));
-
     saveUserProfile({ locations: updatedLocations });
   };
 
-  // Enhanced AI search with real web integration
   const performAISearch = async (query) => {
     if (!query?.trim()) {
       setSearchError('Please enter a search term');
       return;
     }
-    
     setIsSearching(true);
     setSearchError('');
     setSearchResults([]);
-    
     try {
       const locations = userProfile?.locations || [];
       if (locations.length === 0) {
@@ -980,15 +861,12 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
         setIsSearching(false);
         return;
       }
-
       const results = await mockWebSearch(query, locations);
-      
       if (results.length === 0) {
         setSearchError(`No results found for "${query}" in your areas`);
       } else {
         setSearchResults(results);
       }
-      
     } catch (error) {
       console.error('Search error:', error);
       setSearchError('Search failed. Please try again.');
@@ -997,7 +875,6 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
     }
   };
 
-  // Shopping cart functions
   const addToCart = (item) => {
     const cartItem = {
       id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
@@ -1012,10 +889,8 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
       category: item.category || 'other',
       special: item.special || null
     };
-    
     const newCart = [...shoppingCart, cartItem];
     saveShoppingCart(newCart);
-    
     alert(`Added "${cartItem.name}" to your shopping list!`);
   };
 
@@ -1037,19 +912,14 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
     }
   };
 
-  // Calculate cart totals
   const cartTotals = useMemo(() => {
     const total = shoppingCart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-    const checkedTotal = shoppingCart
-      .filter(item => item.checked)
-      .reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    const checkedTotal = shoppingCart.filter(item => item.checked).reduce((sum, item) => sum + (item.price * item.quantity), 0);
     const itemCount = shoppingCart.length;
     const checkedCount = shoppingCart.filter(item => item.checked).length;
-    
     return { total, checkedTotal, itemCount, checkedCount };
   }, [shoppingCart]);
 
-  // Generate personalized deals
   const personalizedDeals = useMemo(() => {
     const usualItems = userConfig.usualItems || [];
     return usualItems.map((item, index) => ({
@@ -1068,7 +938,6 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
     }));
   }, [userConfig.usualItems]);
 
-  // Get directions function
   const getDirections = (item) => {
     const query = encodeURIComponent(`${item.store} ${item.location || item.city || ''}`);
     const url = `https://www.google.com/maps/search/${query}`;
@@ -1101,660 +970,7 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
           <h2>🏠 Welcome back, {userProfile?.name || user?.email || 'User'}!</h2>
-                          <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#22c55e' }}>
-                    R{deal.price}
-                  </div>
-                  <div style={{ fontSize: '14px', color: '#666', textDecoration: 'line-through' }}>
-                    R{deal.originalPrice}
-                  </div>
-                  <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#22c55e' }}>
-                    Save R{deal.savings}
-                  </div>
-                </div>
-                <div style={{ display: 'flex', gap: '5px', flexDirection: 'column' }}>
-                  <button 
-                    onClick={() => addToCart(deal)}
-                    style={{ 
-                      background: '#8b5cf6', 
-                      color: 'white', 
-                      border: 'none', 
-                      padding: '8px 12px', 
-                      borderRadius: '5px',
-                      cursor: 'pointer',
-                      fontSize: '12px'
-                    }}
-                  >
-                    📋 Add to List
-                  </button>
-                  <button 
-                    onClick={() => getDirections(deal)}
-                    style={{ 
-                      background: '#10b981', 
-                      color: 'white', 
-                      border: 'none', 
-                      padding: '8px 12px', 
-                      borderRadius: '5px',
-                      cursor: 'pointer',
-                      fontSize: '12px'
-                    }}
-                  >
-                    📍 Get Deal
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-
-  const CartTab = () => {
-    const groupedItems = shoppingCart.reduce((groups, item) => {
-      const category = item.category || 'other';
-      if (!groups[category]) groups[category] = [];
-      groups[category].push(item);
-      return groups;
-    }, {});
-
-    return (
-      <div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-          <h2>📋 Smart Shopping List</h2>
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <button
-              onClick={clearCart}
-              disabled={shoppingCart.length === 0}
-              style={{
-                background: shoppingCart.length === 0 ? '#ccc' : '#ef4444',
-                color: 'white',
-                border: 'none',
-                padding: '8px 16px',
-                borderRadius: '5px',
-                cursor: shoppingCart.length === 0 ? 'not-allowed' : 'pointer'
-              }}
-            >
-              🗑️ Clear All
-            </button>
-          </div>
-        </div>
-
-        {/* Cart Summary */}
-        <div style={{ 
-          display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
-          gap: '20px', 
-          marginBottom: '30px' 
-        }}>
-          <div style={{ 
-            background: '#eff6ff', 
-            padding: '20px',
-            borderRadius: '10px',
-            border: '1px solid #dbeafe'
-          }}>
-            <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#1e40af' }}>
-              {cartTotals.itemCount}
-            </div>
-            <div style={{ fontSize: '14px', color: '#3b82f6' }}>Total Items</div>
-          </div>
-          
-          <div style={{ 
-            background: '#f0fdf4', 
-            padding: '20px',
-            borderRadius: '10px',
-            border: '1px solid #bbf7d0'
-          }}>
-            <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#166534' }}>
-              {cartTotals.checkedCount}
-            </div>
-            <div style={{ fontSize: '14px', color: '#16a34a' }}>Items Checked</div>
-          </div>
-          
-          <div style={{ 
-            background: '#fef3c7', 
-            padding: '20px',
-            borderRadius: '10px',
-            border: '1px solid #fbbf24'
-          }}>
-            <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#d97706' }}>
-              R{cartTotals.total.toFixed(2)}
-            </div>
-            <div style={{ fontSize: '14px', color: '#f59e0b' }}>Total Cost</div>
-          </div>
-          
-          <div style={{ 
-            background: '#f3e8ff', 
-            padding: '20px',
-            borderRadius: '10px',
-            border: '1px solid #c4b5fd'
-          }}>
-            <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#7c3aed' }}>
-              R{cartTotals.checkedTotal.toFixed(2)}
-            </div>
-            <div style={{ fontSize: '14px', color: '#8b5cf6' }}>Checked Total</div>
-          </div>
-        </div>
-
-        {shoppingCart.length === 0 ? (
-          <div style={{ 
-            background: 'white', 
-            padding: '40px', 
-            borderRadius: '10px', 
-            boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-            textAlign: 'center'
-          }}>
-            <div style={{ fontSize: '48px', marginBottom: '20px' }}>🛒</div>
-            <h3 style={{ color: '#666', marginBottom: '10px' }}>Your shopping list is empty</h3>
-            <p style={{ color: '#888', marginBottom: '20px' }}>
-              Add items from product search, deals, or manually create your list
-            </p>
-            <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
-              <button
-                onClick={() => setActiveTab('search')}
-                style={{
-                  background: '#3b82f6',
-                  color: 'white',
-                  border: 'none',
-                  padding: '10px 20px',
-                  borderRadius: '5px',
-                  cursor: 'pointer'
-                }}
-              >
-                🔍 Search Products
-              </button>
-              <button
-                onClick={() => setActiveTab('deals')}
-                style={{
-                  background: '#10b981',
-                  color: 'white',
-                  border: 'none',
-                  padding: '10px 20px',
-                  borderRadius: '5px',
-                  cursor: 'pointer'
-                }}
-              >
-                🎯 Browse Deals
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div style={{ 
-            background: 'white', 
-            padding: '20px', 
-            borderRadius: '10px', 
-            boxShadow: '0 2px 4px rgba(0,0,0,0.1)' 
-          }}>
-            <h3 style={{ marginBottom: '20px' }}>🛒 Your Items</h3>
-            
-            {Object.entries(groupedItems).map(([category, items]) => (
-              <div key={category} style={{ marginBottom: '30px' }}>
-                <h4 style={{ 
-                  color: '#374151', 
-                  marginBottom: '15px',
-                  textTransform: 'capitalize',
-                  borderBottom: '2px solid #e5e7eb',
-                  paddingBottom: '5px'
-                }}>
-                  {category} ({items.length} items)
-                </h4>
-                
-                <div style={{ display: 'grid', gap: '10px' }}>
-                  {items.map((item) => (
-                    <div key={item.id} style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '15px',
-                      padding: '15px',
-                      background: item.checked ? '#f0fdf4' : '#f8fafc',
-                      borderRadius: '8px',
-                      border: item.checked ? '2px solid #22c55e' : '1px solid #e2e8f0'
-                    }}>
-                      <input
-                        type="checkbox"
-                        checked={item.checked}
-                        onChange={(e) => updateCartItem(item.id, { checked: e.target.checked })}
-                        style={{ 
-                          width: '18px', 
-                          height: '18px',
-                          cursor: 'pointer'
-                        }}
-                      />
-                      
-                      <div style={{ flex: 1 }}>
-                        <div style={{ 
-                          fontWeight: 'bold', 
-                          fontSize: '16px',
-                          textDecoration: item.checked ? 'line-through' : 'none',
-                          color: item.checked ? '#666' : '#000'
-                        }}>
-                          {item.name}
-                        </div>
-                        {item.store && (
-                          <div style={{ fontSize: '14px', color: '#666' }}>
-                            📍 {item.store} {item.location && `- ${item.location}`}
-                          </div>
-                        )}
-                        {item.address && (
-                          <div style={{ fontSize: '12px', color: '#888' }}>
-                            📮 {item.address}
-                          </div>
-                        )}
-                        {item.special && (
-                          <div style={{ fontSize: '12px', color: '#dc2626', fontWeight: 'bold' }}>
-                            🎯 {item.special}
-                          </div>
-                        )}
-                      </div>
-                      
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                          <label style={{ fontSize: '14px', color: '#666' }}>Qty:</label>
-                          <SearchInput
-                            type="number"
-                            min="1"
-                            value={item.quantity}
-                            onChange={(e) => updateCartItem(item.id, { quantity: parseInt(e.target.value) || 1 })}
-                            style={{
-                              width: '60px',
-                              padding: '5px',
-                              border: '1px solid #ccc',
-                              borderRadius: '3px',
-                              textAlign: 'center'
-                            }}
-                          />
-                        </div>
-                        
-                        <div style={{ textAlign: 'right', minWidth: '80px' }}>
-                          <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#374151' }}>
-                            R{(item.price * item.quantity).toFixed(2)}
-                          </div>
-                          {item.quantity > 1 && (
-                            <div style={{ fontSize: '12px', color: '#666' }}>
-                              R{item.price.toFixed(2)} each
-                            </div>
-                          )}
-                        </div>
-                        
-                        <div style={{ display: 'flex', gap: '5px', flexDirection: 'column' }}>
-                          {item.phone && (
-                            <button
-                              onClick={() => window.open(`tel:${item.phone}`, '_blank')}
-                              style={{
-                                background: '#10b981',
-                                color: 'white',
-                                border: 'none',
-                                padding: '3px 6px',
-                                borderRadius: '3px',
-                                cursor: 'pointer',
-                                fontSize: '11px'
-                              }}
-                            >
-                              📞 Call
-                            </button>
-                          )}
-                          <button
-                            onClick={() => removeFromCart(item.id)}
-                            style={{
-                              background: '#ef4444',
-                              color: 'white',
-                              border: 'none',
-                              padding: '5px 8px',
-                              borderRadius: '3px',
-                              cursor: 'pointer',
-                              fontSize: '12px'
-                            }}
-                          >
-                            🗑️
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-            
-            {/* Cart Actions */}
-            <div style={{ 
-              marginTop: '30px', 
-              padding: '20px', 
-              background: '#f8fafc', 
-              borderRadius: '8px',
-              border: '1px solid #e2e8f0'
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#374151' }}>
-                    Total: R{cartTotals.total.toFixed(2)}
-                  </div>
-                  <div style={{ fontSize: '14px', color: '#666' }}>
-                    {cartTotals.checkedCount} of {cartTotals.itemCount} items checked 
-                    {cartTotals.checkedCount > 0 && ` (R${cartTotals.checkedTotal.toFixed(2)})`}
-                  </div>
-                </div>
-                
-                <div style={{ display: 'flex', gap: '10px' }}>
-                  <button
-                    onClick={() => {
-                      const allChecked = shoppingCart.every(item => item.checked);
-                      shoppingCart.forEach(item => {
-                        updateCartItem(item.id, { checked: !allChecked });
-                      });
-                    }}
-                    style={{
-                      background: '#6b7280',
-                      color: 'white',
-                      border: 'none',
-                      padding: '8px 16px',
-                      borderRadius: '5px',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    {shoppingCart.every(item => item.checked) ? '☐ Uncheck All' : '☑️ Check All'}
-                  </button>
-                </div>
-              </div>
-              
-              {cartTotals.checkedCount > 0 && (
-                <div style={{ 
-                  marginTop: '15px', 
-                  padding: '10px', 
-                  background: '#dcfce7', 
-                  borderRadius: '5px',
-                  fontSize: '14px',
-                  color: '#166534'
-                }}>
-                  💡 <strong>Budget Impact:</strong> Your checked items (R{cartTotals.checkedTotal.toFixed(2)}) represent {((cartTotals.checkedTotal / (userConfig.categories?.food || 1)) * 100).toFixed(1)}% of your monthly food budget.
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  const MealPlanTab = () => {
-    const generatePersonalizedMealPlan = useMemo(() => {
-      const proteins = userConfig.foodPreferences?.proteins || ['chicken', 'eggs'];
-      const vegetables = userConfig.foodPreferences?.vegetables || ['potatoes', 'onions'];
-      const grains = userConfig.foodPreferences?.grains || ['rice', 'pap'];
-      const people = userConfig.people || 1;
-      
-      return [
-        { 
-          day: 'Monday', 
-          meal: `${proteins[0]} & ${grains[0]} Curry`, 
-          cost: 45.20 + (people - 4) * 8, 
-          serves: people,
-          ingredients: [proteins[0], grains[0], vegetables[0] || 'onions'],
-          calories: 520
-        },
-        { 
-          day: 'Tuesday', 
-          meal: `${proteins[1] || proteins[0]} & ${vegetables[0]} Scramble`, 
-          cost: 28.50 + (people - 4) * 5, 
-          serves: people,
-          ingredients: [proteins[1] || proteins[0], vegetables[0]],
-          calories: 380
-        },
-        { 
-          day: 'Wednesday', 
-          meal: `${proteins[0]} Stir Fry`, 
-          cost: 52.80 + (people - 4) * 10, 
-          serves: people,
-          ingredients: [proteins[0], vegetables[1] || vegetables[0] || 'mixed vegetables'],
-          calories: 450
-        },
-        { 
-          day: 'Thursday', 
-          meal: `${grains[0]} & Lentil Bowl`, 
-          cost: 32.20 + (people - 4) * 6, 
-          serves: people,
-          ingredients: ['Lentils', grains[0], vegetables[0] || 'onions'],
-          calories: 420
-        },
-        { 
-          day: 'Friday', 
-          meal: `${vegetables[0]} Curry`, 
-          cost: 25.90 + (people - 4) * 4, 
-          serves: people,
-          ingredients: [vegetables[0], 'Curry spices', 'tomatoes'],
-          calories: 350
-        }
-      ];
-    }, [userConfig]);
-
-    const totalMealCost = generatePersonalizedMealPlan.reduce((sum, meal) => sum + meal.cost, 0);
-    const weeklyFoodBudget = (userConfig.categories?.food || 0) / 4;
-
-    return (
-      <div>
-        <h2 style={{ marginBottom: '20px' }}>🍽️ AI Meal Planner</h2>
-        
-        <div style={{ 
-          display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
-          gap: '20px', 
-          marginBottom: '30px' 
-        }}>
-          <div style={{ 
-            background: '#eff6ff', 
-            border: '1px solid #dbeafe',
-            padding: '20px',
-            borderRadius: '10px'
-          }}>
-            <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#1e40af' }}>
-              R{totalMealCost.toFixed(2)}
-            </div>
-            <div style={{ fontSize: '14px', color: '#3b82f6' }}>Weekly Cost</div>
-          </div>
-          <div style={{ 
-            background: '#f0fdf4', 
-            border: '1px solid #bbf7d0',
-            padding: '20px',
-            borderRadius: '10px'
-          }}>
-            <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#166534' }}>
-              R{weeklyFoodBudget.toFixed(2)}
-            </div>
-            <div style={{ fontSize: '14px', color: '#16a34a' }}>Food Budget</div>
-          </div>
-          <div style={{ 
-            background: totalMealCost <= weeklyFoodBudget ? '#f0fdf4' : '#fef2f2', 
-            border: `1px solid ${totalMealCost <= weeklyFoodBudget ? '#bbf7d0' : '#fecaca'}`,
-            padding: '20px',
-            borderRadius: '10px'
-          }}>
-            <div style={{ 
-              fontSize: '20px', 
-              fontWeight: 'bold', 
-              color: totalMealCost <= weeklyFoodBudget ? '#166534' : '#dc2626'
-            }}>
-              {totalMealCost <= weeklyFoodBudget ? '✓' : '⚠️'}
-            </div>
-            <div style={{ 
-              fontSize: '14px', 
-              color: totalMealCost <= weeklyFoodBudget ? '#16a34a' : '#dc2626'
-            }}>
-              {totalMealCost <= weeklyFoodBudget ? 'Within Budget' : 'Over Budget'}
-            </div>
-          </div>
-        </div>
-
-        <div style={{ 
-          background: 'white', 
-          padding: '20px', 
-          borderRadius: '10px', 
-          boxShadow: '0 2px 4px rgba(0,0,0,0.1)' 
-        }}>
-          <h3 style={{ marginBottom: '20px' }}>📅 Your AI-Generated Meal Plan</h3>
-          
-          {generatePersonalizedMealPlan.map((meal, index) => (
-            <div key={index} style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              padding: '15px',
-              marginBottom: '10px',
-              background: '#f8fafc',
-              borderRadius: '8px',
-              border: '1px solid #e2e8f0'
-            }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 'bold', fontSize: '16px' }}>{meal.day}</div>
-                <div style={{ fontSize: '16px', marginBottom: '5px' }}>{meal.meal}</div>
-                <div style={{ fontSize: '14px', color: '#666' }}>
-                  🥘 {meal.ingredients.join(', ')} • {meal.calories} calories
-                </div>
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#10b981' }}>
-                  R{meal.cost.toFixed(2)}
-                </div>
-                <div style={{ fontSize: '12px', color: '#666' }}>
-                  R{(meal.cost / meal.serves).toFixed(2)}/person
-                </div>
-              </div>
-              <button
-                onClick={() => {
-                  const mealAsCartItem = {
-                    name: `${meal.day}: ${meal.meal}`,
-                    product: `${meal.day}: ${meal.meal}`,
-                    price: meal.cost,
-                    store: 'Meal Plan',
-                    location: 'Home Cooking',
-                    category: 'food'
-                  };
-                  addToCart(mealAsCartItem);
-                }}
-                style={{
-                  background: '#8b5cf6',
-                  color: 'white',
-                  border: 'none',
-                  padding: '5px 10px',
-                  borderRadius: '3px',
-                  cursor: 'pointer',
-                  fontSize: '12px',
-                  marginLeft: '15px'
-                }}
-              >
-                📋 Add to List
-              </button>
-            </div>
-          ))}
-          
-          <div style={{ 
-            marginTop: '20px', 
-            padding: '15px', 
-            background: '#f0f9ff', 
-            borderRadius: '8px',
-            border: '1px solid #dbeafe'
-          }}>
-            <div style={{ fontWeight: 'bold', color: '#1e40af', marginBottom: '5px' }}>
-              🤖 AI Meal Planning Tips:
-            </div>
-            <div style={{ fontSize: '14px', color: '#666' }}>
-              • Plan based on your food preferences and household size<br/>
-              • Shop for ingredients in bulk to save money<br/>
-              • Use your location-based price search to find best deals<br/>
-              • Add meal ingredients to your shopping list for easy tracking
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  return (
-    <div style={{ minHeight: '100vh', background: '#f5f5f5' }}>
-      <div style={{ 
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', 
-        color: 'white', 
-        padding: '20px' 
-      }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <h1 style={{ margin: '0 0 10px 0', fontSize: '28px' }}>🏠 Personal Budget AI</h1>
-            <p style={{ margin: 0, opacity: 0.9 }}>
-              Multi-Location Budget Management • {userProfile.name || user.email}
-            </p>
-          </div>
-          <button 
-            onClick={onLogout} 
-            style={{ 
-              background: '#dc2626', 
-              color: 'white',
-              border: 'none',
-              padding: '10px 20px',
-              borderRadius: '5px',
-              cursor: 'pointer'
-            }}
-          >
-            🚪 Logout
-          </button>
-        </div>
-      </div>
-
-      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '20px' }}>
-        <div style={{ 
-          background: 'white', 
-          borderRadius: '10px', 
-          boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-          overflow: 'hidden'
-        }}>
-          <div style={{ 
-            display: 'flex', 
-            borderBottom: '1px solid #e2e8f0',
-            background: '#f8fafc',
-            overflowX: 'auto'
-          }}>
-            {[
-              { id: 'dashboard', label: '🏠 Dashboard' },
-              { id: 'profile', label: '👤 Profile' },
-              { id: 'config', label: '⚙️ Budget' },
-              { id: 'search', label: '🔍 AI Search' },
-              { id: 'deals', label: '🎯 My Deals' },
-              { id: 'cart', label: '📋 Shopping List' },
-              { id: 'meals', label: '🍽️ Meal Plans' }
-            ].map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                style={{
-                  flex: 1,
-                  minWidth: '120px',
-                  padding: '15px 10px',
-                  border: 'none',
-                  background: activeTab === tab.id ? 'white' : 'transparent',
-                  color: activeTab === tab.id ? '#3b82f6' : '#666',
-                  fontWeight: activeTab === tab.id ? 'bold' : 'normal',
-                  cursor: 'pointer',
-                  borderBottom: activeTab === tab.id ? '2px solid #3b82f6' : 'none'
-                }}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
-          <div style={{ padding: '30px' }}>
-            {activeTab === 'dashboard' && <DashboardTab />}
-            {activeTab === 'profile' && <ProfileTab />}
-            {activeTab === 'config' && <ConfigTab />}
-            {activeTab === 'search' && <SearchTab />}
-            {activeTab === 'deals' && <DealsTab />}
-            {activeTab === 'cart' && <CartTab />}
-            {activeTab === 'meals' && <MealPlanTab />}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-export default App;>
+          <div style={{ textAlign: 'right' }}>
             <div style={{ fontSize: '14px', color: '#666' }}>
               📍 {activeLocation?.city || 'Unknown'}, {activeLocation?.province || 'Unknown'}
             </div>
@@ -1959,667 +1175,7 @@ export default App;>
     );
   };
 
-  const ProfileTab = () => {
-    const activeLocation = getActiveLocation();
-    const locations = userProfile?.locations || [];
-
-    const handleNameChange = (e) => {
-      saveUserProfile({ name: e.target.value });
-    };
-
-    return (
-      <div>
-        <h2 style={{ marginBottom: '20px' }}>👤 Profile & Locations</h2>
-        
-        <div style={{ 
-          background: 'white', 
-          padding: '20px', 
-          borderRadius: '10px', 
-          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-          marginBottom: '20px'
-        }}>
-          <h3 style={{ marginBottom: '20px', color: '#3b82f6' }}>Personal Information</h3>
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', 
-            gap: '20px'
-          }}>
-            <div>
-              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Name</label>
-              <FixedInput
-                type="text"
-                value={userProfile.name || ''}
-                onChange={handleNameChange}
-                style={{ 
-                  width: '100%', 
-                  padding: '12px', 
-                  border: '1px solid #ccc', 
-                  borderRadius: '5px',
-                  fontSize: '16px',
-                  boxSizing: 'border-box'
-                }}
-              />
-            </div>
-            
-            <div>
-              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Email</label>
-              <input
-                type="email"
-                value={user.email}
-                disabled
-                style={{ 
-                  width: '100%', 
-                  padding: '12px', 
-                  border: '1px solid #ccc', 
-                  borderRadius: '5px',
-                  fontSize: '16px',
-                  boxSizing: 'border-box',
-                  background: '#f5f5f5',
-                  color: '#666'
-                }}
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Active Location Display */}
-        <div style={{ 
-          background: 'white', 
-          padding: '20px', 
-          borderRadius: '10px', 
-          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-          marginBottom: '20px'
-        }}>
-          <h3 style={{ marginBottom: '20px', color: '#10b981' }}>📍 Current Active Location</h3>
-          
-          <div style={{ 
-            padding: '15px', 
-            background: '#f0fdf4', 
-            borderRadius: '8px',
-            border: '2px solid #22c55e',
-            marginBottom: '20px'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <div style={{ fontWeight: 'bold', fontSize: '16px' }}>
-                  📍 {activeLocation?.name} 
-                  {activeLocation?.isPrimary && <span style={{ color: '#f59e0b', marginLeft: '10px' }}>⭐ Primary</span>}
-                </div>
-                <div style={{ color: '#666', fontSize: '14px' }}>
-                  {activeLocation?.city}, {activeLocation?.province}, {activeLocation?.country}
-                </div>
-                <div style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
-                  Used for AI searches and local price comparisons
-                </div>
-              </div>
-              <div style={{ fontSize: '24px' }}>🎯</div>
-            </div>
-          </div>
-
-          {locations.length > 1 && (
-            <div>
-              <div style={{ fontWeight: 'bold', marginBottom: '10px' }}>Quick Switch:</div>
-              <div style={{ display: 'grid', gap: '10px' }}>
-                {locations.filter(loc => loc.id !== activeLocation?.id).map(location => (
-                  <div key={location.id} style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    padding: '10px',
-                    background: '#f8fafc',
-                    borderRadius: '5px',
-                    border: '1px solid #e2e8f0'
-                  }}>
-                    <div>
-                      <div style={{ fontWeight: 'bold' }}>
-                        {location.name} 
-                        {location.isPrimary && <span style={{ color: '#f59e0b', marginLeft: '10px' }}>⭐</span>}
-                      </div>
-                      <div style={{ fontSize: '14px', color: '#666' }}>
-                        {location.city}, {location.province}
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => switchActiveLocation(location.id)}
-                      style={{
-                        background: '#3b82f6',
-                        color: 'white',
-                        border: 'none',
-                        padding: '5px 10px',
-                        borderRadius: '3px',
-                        cursor: 'pointer',
-                        fontSize: '12px'
-                      }}
-                    >
-                      Switch Here
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Manage All Locations */}
-        <div style={{ 
-          background: 'white', 
-          padding: '20px', 
-          borderRadius: '10px', 
-          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-          marginBottom: '20px'
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-            <h3 style={{ color: '#8b5cf6' }}>🗺️ Manage All Locations</h3>
-            <button
-              onClick={() => {
-                setEditingLocation('new');
-                setLocationForm({ name: '', city: '', province: '', country: 'South Africa' });
-              }}
-              style={{
-                background: '#10b981',
-                color: 'white',
-                border: 'none',
-                padding: '8px 16px',
-                borderRadius: '5px',
-                cursor: 'pointer'
-              }}
-            >
-              ➕ Add New Location
-            </button>
-          </div>
-
-          {/* Location List */}
-          <div style={{ display: 'grid', gap: '10px', marginBottom: '20px' }}>
-            {locations.map(location => (
-              <div key={location.id} style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                padding: '15px',
-                background: location.id === activeLocation?.id ? '#eff6ff' : '#f8fafc',
-                borderRadius: '8px',
-                border: location.id === activeLocation?.id ? '2px solid #3b82f6' : '1px solid #e2e8f0'
-              }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    {location.name}
-                    {location.isPrimary && <span style={{ color: '#f59e0b' }}>⭐ Primary</span>}
-                    {location.id === activeLocation?.id && <span style={{ color: '#3b82f6' }}>🎯 Active</span>}
-                  </div>
-                  <div style={{ fontSize: '14px', color: '#666' }}>
-                    {location.city}, {location.province}, {location.country}
-                  </div>
-                </div>
-                <div style={{ display: 'flex', gap: '5px' }}>
-                  {!location.isPrimary && (
-                    <button
-                      onClick={() => setPrimaryLocation(location.id)}
-                      style={{
-                        background: '#f59e0b',
-                        color: 'white',
-                        border: 'none',
-                        padding: '5px 8px',
-                        borderRadius: '3px',
-                        cursor: 'pointer',
-                        fontSize: '11px'
-                      }}
-                      title="Set as primary location"
-                    >
-                      ⭐ Primary
-                    </button>
-                  )}
-                  <button
-                    onClick={() => {
-                      setEditingLocation(location.id);
-                      setLocationForm({
-                        name: location.name,
-                        city: location.city,
-                        province: location.province,
-                        country: location.country
-                      });
-                    }}
-                    style={{
-                      background: '#6b7280',
-                      color: 'white',
-                      border: 'none',
-                      padding: '5px 8px',
-                      borderRadius: '3px',
-                      cursor: 'pointer',
-                      fontSize: '11px'
-                    }}
-                  >
-                    ✏️ Edit
-                  </button>
-                  <button
-                    onClick={() => deleteLocation(location.id)}
-                    disabled={location.isPrimary || locations.length <= 1}
-                    style={{
-                      background: location.isPrimary || locations.length <= 1 ? '#ccc' : '#ef4444',
-                      color: 'white',
-                      border: 'none',
-                      padding: '5px 8px',
-                      borderRadius: '3px',
-                      cursor: location.isPrimary || locations.length <= 1 ? 'not-allowed' : 'pointer',
-                      fontSize: '11px'
-                    }}
-                  >
-                    🗑️ Delete
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Add/Edit Location Form */}
-          {editingLocation && (
-            <div style={{ 
-              padding: '20px', 
-              background: '#f8fafc', 
-              borderRadius: '8px',
-              border: '1px solid #e2e8f0' 
-            }}>
-              <h4 style={{ marginBottom: '15px' }}>
-                {editingLocation === 'new' ? '➕ Add New Location' : '✏️ Edit Location'}
-              </h4>
-              
-              <div style={{ 
-                display: 'grid', 
-                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
-                gap: '15px',
-                marginBottom: '15px'
-              }}>
-                <div>
-                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Location Name</label>
-                  <FixedInput
-                    type="text"
-                    value={locationForm.name}
-                    onChange={(e) => handleLocationFormChange('name', e.target.value)}
-                    placeholder="e.g. Home, Work, Parents"
-                    style={{ 
-                      width: '100%', 
-                      padding: '10px', 
-                      border: '1px solid #ccc', 
-                      borderRadius: '5px',
-                      fontSize: '14px',
-                      boxSizing: 'border-box'
-                    }}
-                  />
-                </div>
-                
-                <div>
-                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>City</label>
-                  <FixedInput
-                    type="text"
-                    value={locationForm.city}
-                    onChange={(e) => handleLocationFormChange('city', e.target.value)}
-                    placeholder="e.g. Benoni"
-                    style={{ 
-                      width: '100%', 
-                      padding: '10px', 
-                      border: '1px solid #ccc', 
-                      borderRadius: '5px',
-                      fontSize: '14px',
-                      boxSizing: 'border-box'
-                    }}
-                  />
-                </div>
-                
-                <div>
-                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Province</label>
-                  <select
-                    value={locationForm.province}
-                    onChange={(e) => handleLocationFormChange('province', e.target.value)}
-                    style={{ 
-                      width: '100%', 
-                      padding: '10px', 
-                      border: '1px solid #ccc', 
-                      borderRadius: '5px',
-                      fontSize: '14px',
-                      boxSizing: 'border-box'
-                    }}
-                  >
-                    <option value="">Select Province</option>
-                    <option value="Gauteng">Gauteng</option>
-                    <option value="Western Cape">Western Cape</option>
-                    <option value="KwaZulu-Natal">KwaZulu-Natal</option>
-                    <option value="Eastern Cape">Eastern Cape</option>
-                    <option value="Free State">Free State</option>
-                    <option value="Limpopo">Limpopo</option>
-                    <option value="Mpumalanga">Mpumalanga</option>
-                    <option value="Northern Cape">Northern Cape</option>
-                    <option value="North West">North West</option>
-                  </select>
-                </div>
-                
-                <div>
-                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Country</label>
-                  <FixedInput
-                    type="text"
-                    value={locationForm.country}
-                    onChange={(e) => handleLocationFormChange('country', e.target.value)}
-                    style={{ 
-                      width: '100%', 
-                      padding: '10px', 
-                      border: '1px solid #ccc', 
-                      borderRadius: '5px',
-                      fontSize: '14px',
-                      boxSizing: 'border-box'
-                    }}
-                  />
-                </div>
-              </div>
-              
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <button
-                  onClick={() => editingLocation === 'new' ? addLocation() : updateLocation(editingLocation)}
-                  style={{
-                    background: '#10b981',
-                    color: 'white',
-                    border: 'none',
-                    padding: '10px 20px',
-                    borderRadius: '5px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  {editingLocation === 'new' ? '✅ Add Location' : '✅ Save Changes'}
-                </button>
-                <button
-                  onClick={() => {
-                    setEditingLocation(null);
-                    setLocationForm({ name: '', city: '', province: '', country: 'South Africa' });
-                  }}
-                  style={{
-                    background: '#6b7280',
-                    color: 'white',
-                    border: 'none',
-                    padding: '10px 20px',
-                    borderRadius: '5px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  ❌ Cancel
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  const ConfigTab = () => {
-    const handleConfigUpdate = useCallback((field, value) => {
-      saveUserConfig({ [field]: value });
-    }, [saveUserConfig]);
-
-    const handleCategoryUpdate = useCallback((category, value) => {
-      const newCategories = { ...(userConfig.categories || {}), [category]: parseInt(value) || 0 };
-      saveUserConfig({ categories: newCategories });
-    }, [userConfig.categories, saveUserConfig]);
-
-    const handleUsualItemUpdate = useCallback((index, field, value) => {
-      const newItems = [...(userConfig.usualItems || [])];
-      if (newItems[index]) {
-        newItems[index] = { ...newItems[index], [field]: value };
-        saveUserConfig({ usualItems: newItems });
-      }
-    }, [userConfig.usualItems, saveUserConfig]);
-
-    const addUsualItem = useCallback(() => {
-      const newItems = [...(userConfig.usualItems || []), {
-        id: Date.now().toString(),
-        name: '', 
-        brand: '', 
-        category: 'food', 
-        currentPrice: 0
-      }];
-      saveUserConfig({ usualItems: newItems });
-    }, [userConfig.usualItems, saveUserConfig]);
-
-    const removeUsualItem = useCallback((index) => {
-      const newItems = (userConfig.usualItems || []).filter((_, i) => i !== index);
-      saveUserConfig({ usualItems: newItems });
-    }, [userConfig.usualItems, saveUserConfig]);
-
-    const handleSalaryChange = useCallback((e) => {
-      handleConfigUpdate('salary', parseInt(e.target.value) || 0);
-    }, [handleConfigUpdate]);
-
-    const handlePeopleChange = useCallback((e) => {
-      handleConfigUpdate('people', parseInt(e.target.value) || 1);
-    }, [handleConfigUpdate]);
-
-    const handleSavingsGoalChange = useCallback((e) => {
-      handleConfigUpdate('savingsGoal', parseInt(e.target.value) || 0);
-    }, [handleConfigUpdate]);
-
-    return (
-      <div>
-        <h2 style={{ marginBottom: '20px' }}>⚙️ Budget Configuration</h2>
-        
-        <div style={{ 
-          background: 'white', 
-          padding: '20px', 
-          borderRadius: '10px', 
-          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-          marginBottom: '20px'
-        }}>
-          <h3 style={{ marginBottom: '20px', color: '#3b82f6' }}>💰 Basic Information</h3>
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', 
-            gap: '20px'
-          }}>
-            <div>
-              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>💵 Monthly Salary (R)</label>
-              <FixedInput
-                type="number"
-                value={userConfig.salary || ''}
-                onChange={handleSalaryChange}
-                style={{ 
-                  width: '100%', 
-                  padding: '12px', 
-                  border: '1px solid #ccc', 
-                  borderRadius: '5px',
-                  fontSize: '16px',
-                  boxSizing: 'border-box'
-                }}
-              />
-            </div>
-            
-            <div>
-              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>👥 Household Size</label>
-              <FixedInput
-                type="number"
-                value={userConfig.people || ''}
-                onChange={handlePeopleChange}
-                style={{ 
-                  width: '100%', 
-                  padding: '12px', 
-                  border: '1px solid #ccc', 
-                  borderRadius: '5px',
-                  fontSize: '16px',
-                  boxSizing: 'border-box'
-                }}
-              />
-            </div>
-            
-            <div>
-              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>🎯 Savings Goal (R)</label>
-              <FixedInput
-                type="number"
-                value={userConfig.savingsGoal || ''}
-                onChange={handleSavingsGoalChange}
-                style={{ 
-                  width: '100%', 
-                  padding: '12px', 
-                  border: '1px solid #ccc', 
-                  borderRadius: '5px',
-                  fontSize: '16px',
-                  boxSizing: 'border-box'
-                }}
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Budget Categories */}
-        <div style={{ 
-          background: 'white', 
-          padding: '20px', 
-          borderRadius: '10px', 
-          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-          marginBottom: '20px'
-        }}>
-          <h3 style={{ marginBottom: '20px', color: '#10b981' }}>📊 Budget Categories</h3>
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', 
-            gap: '15px'
-          }}>
-            {Object.entries(userConfig.categories || {}).map(([category, amount]) => (
-              <div key={category}>
-                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', textTransform: 'capitalize' }}>
-                  {category.replace(/([A-Z])/g, ' $1')}
-                </label>
-                <FixedInput
-                  type="number"
-                  value={amount || ''}
-                  onChange={(e) => handleCategoryUpdate(category, e.target.value)}
-                  placeholder="0"
-                  style={{ 
-                    width: '100%', 
-                    padding: '10px', 
-                    border: '1px solid #ccc', 
-                    borderRadius: '5px',
-                    fontSize: '14px',
-                    boxSizing: 'border-box'
-                  }}
-                />
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Usual Items */}
-        <div style={{ 
-          background: 'white', 
-          padding: '20px', 
-          borderRadius: '10px', 
-          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-          marginBottom: '20px'
-        }}>
-          <h3 style={{ marginBottom: '20px', color: '#f59e0b' }}>🛒 My Usual Items</h3>
-          <p style={{ color: '#666', marginBottom: '20px' }}>
-            Add items you regularly buy so AI can find better prices across all your locations
-          </p>
-          
-          <div style={{ marginBottom: '15px', fontWeight: 'bold', display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr auto', gap: '10px' }}>
-            <div>Item Name</div>
-            <div>Brand</div>
-            <div>Category</div>
-            <div>Current Price</div>
-            <div>Actions</div>
-          </div>
-          
-          {(userConfig.usualItems || []).map((item, index) => {
-            const nameHandler = (e) => {
-              handleUsualItemUpdate(index, 'name', e.target.value);
-            };
-
-            const brandHandler = (e) => {
-              handleUsualItemUpdate(index, 'brand', e.target.value);
-            };
-
-            const categoryHandler = (e) => {
-              handleUsualItemUpdate(index, 'category', e.target.value);
-            };
-
-            const priceHandler = (e) => {
-              handleUsualItemUpdate(index, 'currentPrice', parseFloat(e.target.value) || 0);
-            };
-
-            return (
-              <div key={`item-${index}-${item.id}`} style={{ 
-                display: 'grid', 
-                gridTemplateColumns: '2fr 1fr 1fr 1fr auto', 
-                gap: '10px', 
-                alignItems: 'center',
-                marginBottom: '10px',
-                padding: '10px',
-                background: '#f8fafc',
-                borderRadius: '5px'
-              }}>
-                <FixedInput
-                  type="text"
-                  placeholder="Item name"
-                  value={item.name || ''}
-                  onChange={nameHandler}
-                  style={{ padding: '8px', border: '1px solid #ccc', borderRadius: '3px' }}
-                />
-                <FixedInput
-                  type="text"
-                  placeholder="Brand"
-                  value={item.brand || ''}
-                  onChange={brandHandler}
-                  style={{ padding: '8px', border: '1px solid #ccc', borderRadius: '3px' }}
-                />
-                <select
-                  value={item.category || 'food'}
-                  onChange={categoryHandler}
-                  style={{ padding: '8px', border: '1px solid #ccc', borderRadius: '3px' }}
-                >
-                  <option value="food">Food</option>
-                  <option value="cleaning">Cleaning</option>
-                  <option value="medication">Medication</option>
-                  <option value="petcare">Pet Care</option>
-                  <option value="other">Other</option>
-                </select>
-                <FixedInput
-                  type="number"
-                  placeholder="Price"
-                  value={item.currentPrice || ''}
-                  onChange={priceHandler}
-                  style={{ padding: '8px', border: '1px solid #ccc', borderRadius: '3px' }}
-                />
-                <button 
-                  onClick={() => removeUsualItem(index)}
-                  style={{ 
-                    background: '#ef4444', 
-                    color: 'white', 
-                    border: 'none', 
-                    padding: '8px 12px', 
-                    borderRadius: '3px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  ✕
-                </button>
-              </div>
-            );
-          })}
-          
-          <button
-            onClick={addUsualItem}
-            style={{ 
-              background: '#10b981', 
-              color: 'white', 
-              border: 'none', 
-              padding: '10px 20px', 
-              borderRadius: '5px',
-              cursor: 'pointer',
-              marginTop: '10px'
-            }}
-          >
-            ➕ Add Item
-          </button>
-        </div>
-      </div>
-    );
-  };
-
   const SearchTab = () => {
-    const activeLocation = getActiveLocation();
     const locations = userProfile.locations || [];
 
     const handleSearch = () => {
@@ -2729,7 +1285,6 @@ export default App;>
               📊 Best Prices for "{searchQuery}" Across All Your Locations
             </h3>
             
-            {/* Summary Stats */}
             <div style={{ 
               display: 'grid', 
               gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', 
@@ -2945,40 +1500,81 @@ export default App;>
     );
   };
 
-  const DealsTab = () => (
-    <div>
-      <h2 style={{ marginBottom: '20px' }}>🎯 AI-Powered Deals</h2>
-      
-      {personalizedDeals.length > 0 && (
+  return (
+    <div style={{ minHeight: '100vh', background: '#f5f5f5' }}>
+      <div style={{ 
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', 
+        color: 'white', 
+        padding: '20px' 
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <h1 style={{ margin: '0 0 10px 0', fontSize: '28px' }}>🏠 Personal Budget AI</h1>
+            <p style={{ margin: 0, opacity: 0.9 }}>
+              Multi-Location Budget Management • {userProfile.name || user.email}
+            </p>
+          </div>
+          <button 
+            onClick={onLogout} 
+            style={{ 
+              background: '#dc2626', 
+              color: 'white',
+              border: 'none',
+              padding: '10px 20px',
+              borderRadius: '5px',
+              cursor: 'pointer'
+            }}
+          >
+            🚪 Logout
+          </button>
+        </div>
+      </div>
+
+      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '20px' }}>
         <div style={{ 
           background: 'white', 
-          padding: '20px', 
           borderRadius: '10px', 
-          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-          marginBottom: '20px'
+          boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+          overflow: 'hidden'
         }}>
-          <h3 style={{ marginBottom: '20px', color: '#10b981' }}>
-            🛒 Deals on Your Usual Items
-          </h3>
-          <div style={{ display: 'grid', gap: '15px' }}>
-            {personalizedDeals.map(deal => (
-              <div key={deal.id} style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                padding: '15px',
-                background: '#f0fdf4',
-                borderRadius: '8px',
-                border: '2px solid #22c55e'
-              }}>
-                <div>
-                  <div style={{ fontWeight: 'bold', fontSize: '16px' }}>{deal.item}</div>
-                  <div style={{ fontSize: '14px', color: '#666' }}>📍 {deal.store}</div>
-                  <div style={{ fontSize: '12px', color: '#666' }}>⏰ Expires: {deal.expires}</div>
-                  {deal.special && (
-                    <div style={{ fontSize: '12px', color: '#dc2626', fontWeight: 'bold' }}>
-                      🎯 {deal.special}
-                    </div>
-                  )}
-                </div>
-                <div style={{ textAlign: 'right' }
+          <div style={{ 
+            display: 'flex', 
+            borderBottom: '1px solid #e2e8f0',
+            background: '#f8fafc',
+            overflowX: 'auto'
+          }}>
+            {[
+              { id: 'dashboard', label: '🏠 Dashboard' },
+              { id: 'search', label: '🔍 AI Search' }
+            ].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                style={{
+                  flex: 1,
+                  minWidth: '120px',
+                  padding: '15px 10px',
+                  border: 'none',
+                  background: activeTab === tab.id ? 'white' : 'transparent',
+                  color: activeTab === tab.id ? '#3b82f6' : '#666',
+                  fontWeight: activeTab === tab.id ? 'bold' : 'normal',
+                  cursor: 'pointer',
+                  borderBottom: activeTab === tab.id ? '2px solid #3b82f6' : 'none'
+                }}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          <div style={{ padding: '30px' }}>
+            {activeTab === 'dashboard' && <DashboardTab />}
+            {activeTab === 'search' && <SearchTab />}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default App;
