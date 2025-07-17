@@ -1,42 +1,4 @@
-// Fixed input component for forms
-  const FormInput = ({ value, onChange, onKeyPress, ...props }) => {
-    const [localValue, setLocalValue] = useState(value || '');
-    const [isFocused, setIsFocused] = useState(false);
-
-    useEffect(() => {
-      if (!isFocused) {
-        setLocalValue(value || '');
-      }
-    }, [value, isFocused]);
-
-    const handleChange = (e) => {
-      setLocalValue(e.target.value);
-      if (onChange) onChange(e);
-    };
-
-    const handleFocus = () => {
-      setIsFocused(true);
-    };
-
-    const handleBlur = () => {
-      setIsFocused(false);
-    };
-
-    const handleKeyPress = (e) => {
-      if (onKeyPress) onKeyPress(e);
-    };
-
-    return (
-      <input
-        {...props}
-        value={localValue}
-        onChange={handleChange}
-        onFocus={handleFocus}
-        onBlur={handleBlur}
-        onKeyPress={handleKeyPress}
-      />
-    );
-  };import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 
 // Simulated user database (replace with Firebase in production)
 let userDatabase = {
@@ -92,7 +54,8 @@ let userDatabase = {
         },
         medications: ['Panado', 'Allergex'],
         pets: ['Dog']
-      }
+      },
+      shoppingCart: []
     }
   }
 };
@@ -102,7 +65,7 @@ const authService = {
   currentUser: null,
   
   signIn: async (email, password) => {
-    await new Promise(resolve => setTimeout(resolve, 500)); // Simulate network delay
+    await new Promise(resolve => setTimeout(resolve, 500));
     
     const user = userDatabase.users[email.toLowerCase()];
     if (!user || user.password !== password) {
@@ -129,7 +92,7 @@ const authService = {
     const newUser = {
       id: userId,
       email: email.toLowerCase(),
-      password: password, // In real app, hash this
+      password: password,
       passwordResetToken: null,
       profile: {
         name: name || 'New User',
@@ -164,7 +127,8 @@ const authService = {
         },
         medications: [],
         pets: []
-      }
+      },
+      shoppingCart: []
     };
     
     userDatabase.users[email.toLowerCase()] = newUser;
@@ -186,11 +150,9 @@ const authService = {
       throw new Error('No user found with this email address');
     }
     
-    // Generate reset token (in real app, this would be cryptographically secure)
     const resetToken = Math.random().toString(36).substring(2, 15);
     user.passwordResetToken = resetToken;
     
-    // Simulate sending email (in real app, use email service)
     console.log(`Password reset token for ${email}: ${resetToken}`);
     return { message: 'Password reset email sent successfully' };
   },
@@ -225,7 +187,8 @@ const dbService = {
   saveUserConfig: async (userId, config) => {
     const user = Object.values(userDatabase.users).find(u => u.id === userId);
     if (user) {
-      user.config = config;
+      user.config = { ...user.config, ...config };
+      console.log('Config saved:', user.config);
     }
   },
   
@@ -237,9 +200,70 @@ const dbService = {
   saveUserProfile: async (userId, profile) => {
     const user = Object.values(userDatabase.users).find(u => u.id === userId);
     if (user) {
-      user.profile = profile;
+      user.profile = { ...user.profile, ...profile };
+      console.log('Profile saved:', user.profile);
+    }
+  },
+
+  getShoppingCart: async (userId) => {
+    const user = Object.values(userDatabase.users).find(u => u.id === userId);
+    return user ? (user.shoppingCart || []) : [];
+  },
+
+  saveShoppingCart: async (userId, cart) => {
+    const user = Object.values(userDatabase.users).find(u => u.id === userId);
+    if (user) {
+      user.shoppingCart = cart;
+      console.log('Shopping cart saved:', user.shoppingCart);
     }
   }
+};
+
+// Fixed input component that prevents re-render issues
+const StableInput = ({ value, onChange, onBlur, onKeyPress, ...props }) => {
+  const [localValue, setLocalValue] = useState(value || '');
+  const [isFocused, setIsFocused] = useState(false);
+
+  useEffect(() => {
+    if (!isFocused) {
+      setLocalValue(value || '');
+    }
+  }, [value, isFocused]);
+
+  const handleChange = (e) => {
+    const newValue = e.target.value;
+    setLocalValue(newValue);
+    if (onChange) {
+      onChange({
+        ...e,
+        target: { ...e.target, value: newValue }
+      });
+    }
+  };
+
+  const handleFocus = () => {
+    setIsFocused(true);
+  };
+
+  const handleBlur = (e) => {
+    setIsFocused(false);
+    if (onBlur) onBlur(e);
+  };
+
+  const handleKeyPress = (e) => {
+    if (onKeyPress) onKeyPress(e);
+  };
+
+  return (
+    <input
+      {...props}
+      value={localValue}
+      onChange={handleChange}
+      onFocus={handleFocus}
+      onBlur={handleBlur}
+      onKeyPress={handleKeyPress}
+    />
+  );
 };
 
 function App() {
@@ -256,9 +280,7 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    // Simulate checking for existing session
     setTimeout(() => {
-      // In real app, check for stored auth token
       setLoading(false);
     }, 1000);
   }, []);
@@ -380,7 +402,7 @@ function App() {
             🏠 Personal Budget AI
           </h1>
           <p style={{ textAlign: 'center', marginBottom: '30px', color: '#666', fontSize: '14px' }}>
-            Smart Budget Management with Multi-User Support
+            Smart Budget Management with Multi-Location Support
           </p>
           
           {error && (
@@ -412,7 +434,6 @@ function App() {
           )}
 
           {showForgotPassword ? (
-            // Forgot Password Form
             <div>
               <h2 style={{ textAlign: 'center', marginBottom: '20px', color: '#333', fontSize: '20px' }}>
                 🔑 Reset Your Password
@@ -420,7 +441,7 @@ function App() {
               
               <div style={{ marginBottom: '20px' }}>
                 <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Email Address</label>
-                <FormInput 
+                <StableInput 
                   type="email" 
                   value={resetEmail} 
                   onChange={(e) => setResetEmail(e.target.value)} 
@@ -478,12 +499,11 @@ function App() {
               </div>
             </div>
           ) : (
-            // Login/Register Form
             <div>
               {isRegister && (
                 <div style={{ marginBottom: '20px' }}>
                   <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Full Name</label>
-                  <FormInput 
+                  <StableInput 
                     type="text" 
                     value={name} 
                     onChange={(e) => setName(e.target.value)} 
@@ -503,7 +523,7 @@ function App() {
 
               <div style={{ marginBottom: '20px' }}>
                 <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Email</label>
-                <FormInput 
+                <StableInput 
                   type="email" 
                   value={email} 
                   onChange={(e) => setEmail(e.target.value)} 
@@ -522,7 +542,7 @@ function App() {
               
               <div style={{ marginBottom: '20px' }}>
                 <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Password</label>
-                <FormInput 
+                <StableInput 
                   type="password" 
                   value={password} 
                   onChange={(e) => setPassword(e.target.value)} 
@@ -626,6 +646,7 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [userConfig, setUserConfig] = useState({});
   const [userProfile, setUserProfile] = useState(user.profile || {});
+  const [shoppingCart, setShoppingCart] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // Search states
@@ -634,8 +655,8 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
   const [isSearching, setIsSearching] = useState(false);
 
   // Location management
-  const [editingLocation, setEditingLocation] = useState(null); // null, 'new', or location id
-  const [newLocation, setNewLocation] = useState({
+  const [editingLocation, setEditingLocation] = useState(null);
+  const [locationForm, setLocationForm] = useState({
     name: '',
     city: '',
     province: '',
@@ -651,20 +672,72 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
     return activeLocation || locations[0] || null;
   }, [userProfile]);
 
-  // Add new location
-  const addLocation = () => {
-    if (!newLocation.name || !newLocation.city || !newLocation.province) {
+  // Load user data on mount
+  useEffect(() => {
+    const loadUserData = async () => {
+      try {
+        const config = await dbService.getUserConfig(user.id);
+        const profile = await dbService.getUserProfile(user.id);
+        const cart = await dbService.getShoppingCart(user.id);
+        
+        if (config) setUserConfig(config);
+        if (profile) setUserProfile(profile);
+        if (cart) setShoppingCart(cart);
+      } catch (error) {
+        console.error('Error loading user data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    loadUserData();
+  }, [user.id]);
+
+  // Save user config with proper state management
+  const saveUserConfig = useCallback(async (newConfig) => {
+    try {
+      await dbService.saveUserConfig(user.id, newConfig);
+      setUserConfig(prev => ({ ...prev, ...newConfig }));
+    } catch (error) {
+      console.error('Error saving config:', error);
+    }
+  }, [user.id]);
+
+  // Save user profile with proper state management
+  const saveUserProfile = useCallback(async (newProfile) => {
+    try {
+      await dbService.saveUserProfile(user.id, newProfile);
+      setUserProfile(prev => ({ ...prev, ...newProfile }));
+    } catch (error) {
+      console.error('Error saving profile:', error);
+    }
+  }, [user.id]);
+
+  // Save shopping cart
+  const saveShoppingCart = useCallback(async (newCart) => {
+    try {
+      await dbService.saveShoppingCart(user.id, newCart);
+      setShoppingCart(newCart);
+    } catch (error) {
+      console.error('Error saving cart:', error);
+    }
+  }, [user.id]);
+
+  // Location management functions
+  const addLocation = useCallback(() => {
+    if (!locationForm.name || !locationForm.city || !locationForm.province) {
+      alert('Please fill in all required fields');
       return;
     }
 
     const locationId = `loc-${Date.now()}`;
     const newLoc = {
       id: locationId,
-      name: newLocation.name,
-      city: newLocation.city,
-      province: newLocation.province,
-      country: newLocation.country,
-      coordinates: { lat: 0, lng: 0 }, // In real app, geocode this
+      name: locationForm.name,
+      city: locationForm.city,
+      province: locationForm.province,
+      country: locationForm.country,
+      coordinates: { lat: 0, lng: 0 },
       isActive: false,
       isPrimary: false
     };
@@ -676,12 +749,12 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
 
     saveUserProfile(updatedProfile);
     setEditingLocation(null);
-    setNewLocation({ name: '', city: '', province: '', country: 'South Africa' });
-  };
+    setLocationForm({ name: '', city: '', province: '', country: 'South Africa' });
+  }, [locationForm, userProfile, saveUserProfile]);
 
-  // Update existing location
-  const updateLocation = (locationId) => {
-    if (!newLocation.name || !newLocation.city || !newLocation.province) {
+  const updateLocation = useCallback((locationId) => {
+    if (!locationForm.name || !locationForm.city || !locationForm.province) {
+      alert('Please fill in all required fields');
       return;
     }
 
@@ -691,10 +764,10 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
         loc.id === locationId 
           ? {
               ...loc,
-              name: newLocation.name,
-              city: newLocation.city,
-              province: newLocation.province,
-              country: newLocation.country
+              name: locationForm.name,
+              city: locationForm.city,
+              province: locationForm.province,
+              country: locationForm.country
             }
           : loc
       )
@@ -702,11 +775,10 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
 
     saveUserProfile(updatedProfile);
     setEditingLocation(null);
-    setNewLocation({ name: '', city: '', province: '', country: 'South Africa' });
-  };
+    setLocationForm({ name: '', city: '', province: '', country: 'South Africa' });
+  }, [locationForm, userProfile, saveUserProfile]);
 
-  // Delete location
-  const deleteLocation = (locationId) => {
+  const deleteLocation = useCallback((locationId) => {
     const locations = userProfile.locations || [];
     if (locations.length <= 1) {
       alert('You must have at least one location');
@@ -724,27 +796,23 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
       locations: locations.filter(loc => loc.id !== locationId)
     };
 
-    // If deleting active location, switch to primary
     if (userProfile.activeLocationId === locationId) {
       const primaryLocation = updatedProfile.locations.find(loc => loc.isPrimary);
       updatedProfile.activeLocationId = primaryLocation?.id || updatedProfile.locations[0]?.id;
     }
 
     saveUserProfile(updatedProfile);
-  };
+  }, [userProfile, saveUserProfile]);
 
-  // Switch active location
-  const switchActiveLocation = (locationId) => {
+  const switchActiveLocation = useCallback((locationId) => {
     const updatedProfile = {
       ...userProfile,
       activeLocationId: locationId
     };
-
     saveUserProfile(updatedProfile);
-  };
+  }, [userProfile, saveUserProfile]);
 
-  // Set primary location
-  const setPrimaryLocation = (locationId) => {
+  const setPrimaryLocation = useCallback((locationId) => {
     const updatedProfile = {
       ...userProfile,
       locations: (userProfile.locations || []).map(loc => ({
@@ -752,50 +820,10 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
         isPrimary: loc.id === locationId
       }))
     };
-
     saveUserProfile(updatedProfile);
-  };
+  }, [userProfile, saveUserProfile]);
 
-  // Load user data on mount
-  useEffect(() => {
-    const loadUserData = async () => {
-      try {
-        const config = await dbService.getUserConfig(user.id);
-        const profile = await dbService.getUserProfile(user.id);
-        
-        if (config) setUserConfig(config);
-        if (profile) setUserProfile(profile);
-      } catch (error) {
-        console.error('Error loading user data:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    loadUserData();
-  }, [user.id]);
-
-  // Save user config
-  const saveUserConfig = useCallback(async (newConfig) => {
-    try {
-      await dbService.saveUserConfig(user.id, newConfig);
-      setUserConfig(newConfig);
-    } catch (error) {
-      console.error('Error saving config:', error);
-    }
-  }, [user.id]);
-
-  // Save user profile
-  const saveUserProfile = useCallback(async (newProfile) => {
-    try {
-      await dbService.saveUserProfile(user.id, newProfile);
-      setUserProfile(newProfile);
-    } catch (error) {
-      console.error('Error saving profile:', error);
-    }
-  }, [user.id]);
-
-  // Multi-location medication search - searches ALL user locations
+  // Enhanced multi-location medication search
   const searchMedication = useCallback(async (searchTerm) => {
     if (!searchTerm?.trim()) return;
     
@@ -812,157 +840,113 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
         return;
       }
       
-      // Create pharmacies for ALL user locations
       const allResults = [];
       
-      locations.forEach((location, locationIndex) => {
+      locations.forEach((location) => {
         if (!location) return;
         
         const isActiveLocation = location.id === activeLocation?.id;
-        const locationMultiplier = isActiveLocation ? 1 : (1 + Math.random() * 0.3); // Active location gets slight price advantage
+        const cityMultiplier = 1 + (Math.random() * 0.2 - 0.1); // ±10% price variation by city
+        const locationMultiplier = isActiveLocation ? 0.95 : cityMultiplier; // Active location gets slight advantage
         
-        const pharmacies = [
-          { 
-            name: 'Dis-Chem', 
-            multiplier: 0.95 * locationMultiplier, 
-            location: `${location.city || 'Unknown'} City`, 
-            distance: isActiveLocation ? '2.1km' : `${(15 + Math.random() * 25).toFixed(1)}km`,
-            phone: '011-421-0000',
-            locationName: location.name || 'Unknown',
-            city: location.city || 'Unknown',
-            province: location.province || 'Unknown',
-            isActiveLocation
-          },
-          { 
-            name: 'Clicks', 
-            multiplier: 1.0 * locationMultiplier, 
-            location: `${location.city || 'Unknown'} Mall`, 
-            distance: isActiveLocation ? '3.2km' : `${(18 + Math.random() * 22).toFixed(1)}km`,
-            phone: '011-425-0000',
-            locationName: location.name || 'Unknown',
-            city: location.city || 'Unknown',
-            province: location.province || 'Unknown',
-            isActiveLocation
-          },
-          { 
-            name: 'Alpha Pharm', 
-            multiplier: 0.92 * locationMultiplier, 
-            location: `${location.city || 'Unknown'} Main Street`, 
-            distance: isActiveLocation ? '2.5km' : `${(12 + Math.random() * 28).toFixed(1)}km`,
-            phone: '011-422-0000',
-            locationName: location.name || 'Unknown',
-            city: location.city || 'Unknown',
-            province: location.province || 'Unknown',
-            isActiveLocation
-          },
-          { 
-            name: 'Medirite', 
-            multiplier: 1.05 * locationMultiplier, 
-            location: `${location.city || 'Unknown'} Shopping Centre`, 
-            distance: isActiveLocation ? '4.1km' : `${(20 + Math.random() * 20).toFixed(1)}km`,
-            phone: '011-427-0000',
-            locationName: location.name || 'Unknown',
-            city: location.city || 'Unknown',
-            province: location.province || 'Unknown',
-            isActiveLocation
-          },
-          { 
-            name: 'Pick n Pay Pharmacy', 
-            multiplier: 1.08 * locationMultiplier, 
-            location: `${location.city || 'Unknown'} Square`, 
-            distance: isActiveLocation ? '1.8km' : `${(8 + Math.random() * 32).toFixed(1)}km`,
-            phone: '011-423-0000',
-            locationName: location.name || 'Unknown',
-            city: location.city || 'Unknown',
-            province: location.province || 'Unknown',
-            isActiveLocation
-          }
+        // Generate multiple pharmacies per location with realistic names for SA
+        const pharmacyChains = [
+          { name: 'Dis-Chem', multiplier: 0.95, phone: '011-421-0000' },
+          { name: 'Clicks', multiplier: 1.0, phone: '011-425-0000' },
+          { name: 'Alpha Pharm', multiplier: 0.92, phone: '011-422-0000' },
+          { name: 'Medirite', multiplier: 1.05, phone: '011-427-0000' },
+          { name: 'Pick n Pay Pharmacy', multiplier: 1.08, phone: '011-423-0000' },
+          { name: 'Wellness Warehouse', multiplier: 1.12, phone: '011-428-0000' }
         ];
 
-        pharmacies.forEach(pharmacy => {
+        pharmacyChains.forEach((pharmacy, index) => {
+          const distance = isActiveLocation ? 
+            (2 + Math.random() * 3).toFixed(1) : 
+            (8 + Math.random() * 25).toFixed(1);
+          
+          const locationSuffix = ['Mall', 'Shopping Centre', 'Main Street', 'City Centre', 'Square'][index % 5];
+          
           allResults.push({
             name: searchTerm,
             store: pharmacy.name,
-            price: (basePrice * pharmacy.multiplier).toFixed(2),
-            location: pharmacy.location,
-            distance: pharmacy.distance,
-            stock: Math.random() > 0.3 ? 'In Stock' : 'Limited Stock',
+            price: (basePrice * pharmacy.multiplier * locationMultiplier).toFixed(2),
+            location: `${location.city} ${locationSuffix}`,
+            distance: `${distance}km`,
+            stock: Math.random() > 0.2 ? 'In Stock' : 'Limited Stock',
             phone: pharmacy.phone,
-            locationName: pharmacy.locationName,
-            city: pharmacy.city,
-            province: pharmacy.province,
-            isActiveLocation: pharmacy.isActiveLocation
+            locationName: location.name,
+            city: location.city,
+            province: location.province,
+            isActiveLocation,
+            coordinates: location.coordinates
           });
         });
       });
       
-      // Sort by price (best deals first)
-      const sortedResults = allResults.sort((a, b) => parseFloat(a.price) - parseFloat(b.price));
+      // Sort by price (best deals first), but prioritize stock availability
+      const sortedResults = allResults.sort((a, b) => {
+        if (a.stock === 'In Stock' && b.stock !== 'In Stock') return -1;
+        if (b.stock === 'In Stock' && a.stock !== 'In Stock') return 1;
+        return parseFloat(a.price) - parseFloat(b.price);
+      });
       
       setMedicationResults(sortedResults);
       setIsSearching(false);
     }, 1500);
   }, [userProfile, getActiveLocation]);
 
-
-
-  // Generate personalized meal plan
-  const generatePersonalizedMealPlan = useMemo(() => {
-    const proteins = userConfig.foodPreferences?.proteins || ['chicken', 'eggs'];
-    const vegetables = userConfig.foodPreferences?.vegetables || ['potatoes', 'onions'];
-    const grains = userConfig.foodPreferences?.grains || ['rice', 'pap'];
-    const people = userConfig.people || 1;
+  // Shopping cart functions
+  const addToCart = useCallback((item) => {
+    const cartItem = {
+      id: Date.now().toString(),
+      name: item.name || item.item,
+      price: parseFloat(item.price) || 0,
+      store: item.store || '',
+      location: item.location || '',
+      quantity: 1,
+      checked: false,
+      category: item.category || 'other'
+    };
     
-    return [
-      { 
-        day: 'Monday', 
-        meal: `${proteins[0]} & ${grains[0]} Curry`, 
-        cost: 45.20 + (people - 4) * 8, 
-        serves: people,
-        ingredients: [proteins[0], grains[0], vegetables[0] || 'onions'],
-        calories: 520
-      },
-      { 
-        day: 'Tuesday', 
-        meal: `${proteins[1] || proteins[0]} & ${vegetables[0]} Scramble`, 
-        cost: 28.50 + (people - 4) * 5, 
-        serves: people,
-        ingredients: [proteins[1] || proteins[0], vegetables[0]],
-        calories: 380
-      },
-      { 
-        day: 'Wednesday', 
-        meal: `${proteins[0]} Stir Fry`, 
-        cost: 52.80 + (people - 4) * 10, 
-        serves: people,
-        ingredients: [proteins[0], vegetables[1] || vegetables[0] || 'mixed vegetables'],
-        calories: 450
-      },
-      { 
-        day: 'Thursday', 
-        meal: `${grains[0]} & Lentil Bowl`, 
-        cost: 32.20 + (people - 4) * 6, 
-        serves: people,
-        ingredients: ['Lentils', grains[0], vegetables[0] || 'onions'],
-        calories: 420
-      },
-      { 
-        day: 'Friday', 
-        meal: `${vegetables[0]} Curry`, 
-        cost: 25.90 + (people - 4) * 4, 
-        serves: people,
-        ingredients: [vegetables[0], 'Curry spices', 'tomatoes'],
-        calories: 350
-      }
-    ];
-  }, [userConfig]);
+    const newCart = [...shoppingCart, cartItem];
+    saveShoppingCart(newCart);
+  }, [shoppingCart, saveShoppingCart]);
 
-  // AI-powered deals
+  const updateCartItem = useCallback((itemId, updates) => {
+    const newCart = shoppingCart.map(item => 
+      item.id === itemId ? { ...item, ...updates } : item
+    );
+    saveShoppingCart(newCart);
+  }, [shoppingCart, saveShoppingCart]);
+
+  const removeFromCart = useCallback((itemId) => {
+    const newCart = shoppingCart.filter(item => item.id !== itemId);
+    saveShoppingCart(newCart);
+  }, [shoppingCart, saveShoppingCart]);
+
+  const clearCart = useCallback(() => {
+    saveShoppingCart([]);
+  }, [saveShoppingCart]);
+
+  // Calculate cart totals
+  const cartTotals = useMemo(() => {
+    const total = shoppingCart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    const checkedTotal = shoppingCart
+      .filter(item => item.checked)
+      .reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    const itemCount = shoppingCart.length;
+    const checkedCount = shoppingCart.filter(item => item.checked).length;
+    
+    return { total, checkedTotal, itemCount, checkedCount };
+  }, [shoppingCart]);
+
+  // Generate personalized deals with cart integration
   const personalizedDeals = useMemo(() => {
     const usualItems = userConfig.usualItems || [];
     return usualItems.map((item, index) => ({
       id: `deal-${index}`,
       item: `${item.name} ${item.brand}`,
+      name: item.name,
       price: (item.currentPrice * 0.85).toFixed(2),
       originalPrice: item.currentPrice,
       store: ['Spar', 'Shoprite', 'Pick n Pay', 'Checkers'][index % 4],
@@ -972,137 +956,6 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
       expires: new Date(Date.now() + (3 + index) * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
     }));
   }, [userConfig.usualItems]);
-
-  // Fixed components
-  const StableInput = React.memo(({ value, onChange, onBlur, ...props }) => {
-    const [localValue, setLocalValue] = useState(value);
-
-    useEffect(() => {
-      setLocalValue(value);
-    }, [value]);
-
-    const handleChange = (e) => {
-      setLocalValue(e.target.value);
-      if (onChange) onChange(e);
-    };
-
-    const handleBlur = (e) => {
-      if (onBlur) onBlur(e);
-    };
-
-    return (
-      <input
-        {...props}
-        value={localValue}
-        onChange={handleChange}
-        onBlur={handleBlur}
-      />
-    );
-  });
-
-  const StableSelect = ({ value, onChange, children, ...props }) => {
-    const handleChange = (e) => {
-      if (onChange) onChange(e);
-    };
-
-    return (
-      <select
-        {...props}
-        value={value || ''}
-        onChange={handleChange}
-      >
-        {children}
-      </select>
-    );
-  };
-
-  const UsualItemRow = ({ item, index, onUpdate, onDelete }) => {
-    const [localItem, setLocalItem] = useState(item || {});
-    const timeoutRef = useRef(null);
-
-    useEffect(() => {
-      setLocalItem(item || {});
-    }, [item]);
-
-    const handleUpdate = (field, value) => {
-      const updatedItem = { ...localItem, [field]: value };
-      setLocalItem(updatedItem);
-      
-      // Debounce the save to prevent too many updates
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-      
-      timeoutRef.current = setTimeout(() => {
-        onUpdate(index, updatedItem);
-      }, 500);
-    };
-
-    const handleImmediateUpdate = (field, value) => {
-      const updatedItem = { ...localItem, [field]: value };
-      setLocalItem(updatedItem);
-      onUpdate(index, updatedItem);
-    };
-
-    return (
-      <div style={{ 
-        display: 'grid', 
-        gridTemplateColumns: '2fr 1fr 1fr 1fr auto', 
-        gap: '10px', 
-        alignItems: 'center',
-        marginBottom: '10px',
-        padding: '10px',
-        background: '#f8fafc',
-        borderRadius: '5px'
-      }}>
-        <StableInput
-          type="text"
-          placeholder="Item name"
-          value={localItem.name || ''}
-          onChange={(e) => handleUpdate('name', e.target.value)}
-          style={{ padding: '8px', border: '1px solid #ccc', borderRadius: '3px' }}
-        />
-        <StableInput
-          type="text"
-          placeholder="Brand"
-          value={localItem.brand || ''}
-          onChange={(e) => handleUpdate('brand', e.target.value)}
-          style={{ padding: '8px', border: '1px solid #ccc', borderRadius: '3px' }}
-        />
-        <StableSelect
-          value={localItem.category || 'food'}
-          onChange={(e) => handleImmediateUpdate('category', e.target.value)}
-          style={{ padding: '8px', border: '1px solid #ccc', borderRadius: '3px' }}
-        >
-          <option value="food">Food</option>
-          <option value="cleaning">Cleaning</option>
-          <option value="medication">Medication</option>
-          <option value="petcare">Pet Care</option>
-          <option value="other">Other</option>
-        </StableSelect>
-        <StableInput
-          type="number"
-          placeholder="Price"
-          value={localItem.currentPrice || ''}
-          onChange={(e) => handleUpdate('currentPrice', parseFloat(e.target.value) || 0)}
-          style={{ padding: '8px', border: '1px solid #ccc', borderRadius: '3px' }}
-        />
-        <button 
-          onClick={() => onDelete(index)}
-          style={{ 
-            background: '#ef4444', 
-            color: 'white', 
-            border: 'none', 
-            padding: '8px 12px', 
-            borderRadius: '3px',
-            cursor: 'pointer'
-          }}
-        >
-          ✕
-        </button>
-      </div>
-    );
-  };
 
   if (loading) {
     return (
@@ -1201,6 +1054,23 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
               Save R{personalizedDeals.reduce((sum, d) => sum + parseFloat(d.savings || 0), 0).toFixed(2)} this week
             </div>
           </div>
+
+          <div style={{ 
+            background: '#8b5cf6', 
+            color: 'white',
+            padding: '20px',
+            borderRadius: '10px',
+            cursor: 'pointer'
+          }}
+          onClick={() => setActiveTab('cart')}>
+            <div style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '5px' }}>
+              {cartTotals.itemCount}
+            </div>
+            <div style={{ fontSize: '14px', opacity: 0.9 }}>Shopping List Items</div>
+            <div style={{ fontSize: '12px', marginTop: '10px', opacity: 0.8 }}>
+              Total: R{cartTotals.total.toFixed(2)}
+            </div>
+          </div>
         </div>
 
         <div style={{ 
@@ -1228,7 +1098,7 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
                   AI Found {personalizedDeals.length} Deals on Your Items!
                 </div>
                 <div style={{ fontSize: '14px', color: '#666' }}>
-                  Smart price comparison based on your shopping history
+                  Smart price comparison across all your locations
                 </div>
               </div>
               <button 
@@ -1254,15 +1124,16 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
             padding: '15px',
             background: '#fef3c7', 
             borderRadius: '8px', 
-            border: '1px solid #fbbf24'
+            border: '1px solid #fbbf24',
+            marginBottom: '15px'
           }}>
             <div style={{ fontSize: '24px' }}>💊</div>
             <div style={{ flex: 1 }}>
               <div style={{ fontWeight: 'bold', marginBottom: '5px' }}>
-                Smart Medication Price Search
+                Multi-Location Medicine Search
               </div>
               <div style={{ fontSize: '14px', color: '#666' }}>
-                Find the best prices in {activeLocation?.city || 'your area'}
+                Find best prices across all your saved areas
               </div>
             </div>
             <button 
@@ -1276,7 +1147,40 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
               }}
               onClick={() => setActiveTab('search')}
             >
-              Search Now
+              Search Medicine
+            </button>
+          </div>
+
+          <div style={{
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '15px', 
+            padding: '15px',
+            background: '#f3e8ff', 
+            borderRadius: '8px', 
+            border: '1px solid #c4b5fd'
+          }}>
+            <div style={{ fontSize: '24px' }}>📋</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 'bold', marginBottom: '5px' }}>
+                Smart Shopping List ({cartTotals.itemCount} items)
+              </div>
+              <div style={{ fontSize: '14px', color: '#666' }}>
+                Track purchases and manage your grocery budget
+              </div>
+            </div>
+            <button 
+              style={{ 
+                background: '#8b5cf6', 
+                color: 'white', 
+                border: 'none', 
+                padding: '8px 16px', 
+                borderRadius: '5px',
+                cursor: 'pointer'
+              }}
+              onClick={() => setActiveTab('cart')}
+            >
+              View List
             </button>
           </div>
         </div>
@@ -1290,7 +1194,7 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
 
     return (
       <div>
-        <h2 style={{ marginBottom: '20px' }}>👤 Profile & Location Settings</h2>
+        <h2 style={{ marginBottom: '20px' }}>👤 Profile & Locations</h2>
         
         <div style={{ 
           background: 'white', 
@@ -1346,7 +1250,7 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
           </div>
         </div>
 
-        {/* Active Location Selector */}
+        {/* Active Location Display */}
         <div style={{ 
           background: 'white', 
           padding: '20px', 
@@ -1373,7 +1277,7 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
                   {activeLocation?.city}, {activeLocation?.province}, {activeLocation?.country}
                 </div>
                 <div style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
-                  Currently used for searches and local deals
+                  Used for AI searches and local price comparisons
                 </div>
               </div>
               <div style={{ fontSize: '24px' }}>🎯</div>
@@ -1382,7 +1286,7 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
 
           {locations.length > 1 && (
             <div>
-              <div style={{ fontWeight: 'bold', marginBottom: '10px' }}>Switch to:</div>
+              <div style={{ fontWeight: 'bold', marginBottom: '10px' }}>Quick Switch:</div>
               <div style={{ display: 'grid', gap: '10px' }}>
                 {locations.filter(loc => loc.id !== activeLocation?.id).map(location => (
                   <div key={location.id} style={{
@@ -1437,7 +1341,7 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
             <button
               onClick={() => {
                 setEditingLocation('new');
-                setNewLocation({ name: '', city: '', province: '', country: 'South Africa' });
+                setLocationForm({ name: '', city: '', province: '', country: 'South Africa' });
               }}
               style={{
                 background: '#10b981',
@@ -1495,7 +1399,7 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
                   <button
                     onClick={() => {
                       setEditingLocation(location.id);
-                      setNewLocation({
+                      setLocationForm({
                         name: location.name,
                         city: location.city,
                         province: location.province,
@@ -1554,10 +1458,10 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
               }}>
                 <div>
                   <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Location Name</label>
-                  <input
+                  <StableInput
                     type="text"
-                    value={newLocation.name}
-                    onChange={(e) => setNewLocation({...newLocation, name: e.target.value})}
+                    value={locationForm.name}
+                    onChange={(e) => setLocationForm(prev => ({...prev, name: e.target.value}))}
                     placeholder="e.g. Home, Work, Parents"
                     style={{ 
                       width: '100%', 
@@ -1572,10 +1476,10 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
                 
                 <div>
                   <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>City</label>
-                  <input
+                  <StableInput
                     type="text"
-                    value={newLocation.city}
-                    onChange={(e) => setNewLocation({...newLocation, city: e.target.value})}
+                    value={locationForm.city}
+                    onChange={(e) => setLocationForm(prev => ({...prev, city: e.target.value}))}
                     placeholder="e.g. Benoni"
                     style={{ 
                       width: '100%', 
@@ -1591,8 +1495,8 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
                 <div>
                   <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Province</label>
                   <select
-                    value={newLocation.province}
-                    onChange={(e) => setNewLocation({...newLocation, province: e.target.value})}
+                    value={locationForm.province}
+                    onChange={(e) => setLocationForm(prev => ({...prev, province: e.target.value}))}
                     style={{ 
                       width: '100%', 
                       padding: '10px', 
@@ -1617,10 +1521,10 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
                 
                 <div>
                   <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Country</label>
-                  <input
+                  <StableInput
                     type="text"
-                    value={newLocation.country}
-                    onChange={(e) => setNewLocation({...newLocation, country: e.target.value})}
+                    value={locationForm.country}
+                    onChange={(e) => setLocationForm(prev => ({...prev, country: e.target.value}))}
                     style={{ 
                       width: '100%', 
                       padding: '10px', 
@@ -1650,7 +1554,7 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
                 <button
                   onClick={() => {
                     setEditingLocation(null);
-                    setNewLocation({ name: '', city: '', province: '', country: 'South Africa' });
+                    setLocationForm({ name: '', city: '', province: '', country: 'South Africa' });
                   }}
                   style={{
                     background: '#6b7280',
@@ -1667,168 +1571,253 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
             </div>
           )}
         </div>
-
-        <div style={{ 
-          padding: '15px', 
-          background: '#fef3c7', 
-          borderRadius: '8px',
-          border: '1px solid #fbbf24',
-          fontSize: '14px'
-        }}>
-          <div style={{ fontWeight: 'bold', marginBottom: '5px' }}>💡 How Multiple Locations Work:</div>
-          <div style={{ color: '#666' }}>
-            • <strong>Primary Location:</strong> Your main address (starred ⭐)<br/>
-            • <strong>Active Location:</strong> Currently used for searches and deals (🎯)<br/>
-            • <strong>Switch anytime:</strong> Change active location to search nearby areas<br/>
-            • <strong>Location-specific:</strong> Prices and deals adapt to your active location
-          </div>
-        </div>
       </div>
     );
   };
 
-  const ConfigTab = () => (
-    <div>
-      <h2 style={{ marginBottom: '20px' }}>⚙️ Budget Configuration</h2>
-      
-      <div style={{ 
-        background: 'white', 
-        padding: '20px', 
-        borderRadius: '10px', 
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-        marginBottom: '20px'
-      }}>
-        <h3 style={{ marginBottom: '20px', color: '#3b82f6' }}>💰 Basic Information</h3>
-        <div style={{ 
-          display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', 
-          gap: '20px'
-        }}>
-          <div>
-            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>💵 Monthly Salary (R)</label>
-            <StableInput
-              type="number"
-              value={userConfig.salary || ''}
-              onChange={(e) => {
-                const newConfig = {...userConfig, salary: parseInt(e.target.value) || 0};
-                saveUserConfig(newConfig);
-              }}
-              style={{ 
-                width: '100%', 
-                padding: '12px', 
-                border: '1px solid #ccc', 
-                borderRadius: '5px',
-                fontSize: '16px',
-                boxSizing: 'border-box'
-              }}
-            />
-          </div>
-          
-          <div>
-            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>👥 Household Size</label>
-            <StableInput
-              type="number"
-              value={userConfig.people || ''}
-              onChange={(e) => {
-                const newConfig = {...userConfig, people: parseInt(e.target.value) || 1};
-                saveUserConfig(newConfig);
-              }}
-              style={{ 
-                width: '100%', 
-                padding: '12px', 
-                border: '1px solid #ccc', 
-                borderRadius: '5px',
-                fontSize: '16px',
-                boxSizing: 'border-box'
-              }}
-            />
-          </div>
-          
-          <div>
-            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>🎯 Savings Goal (R)</label>
-            <StableInput
-              type="number"
-              value={userConfig.savingsGoal || ''}
-              onChange={(e) => {
-                const newConfig = {...userConfig, savingsGoal: parseInt(e.target.value) || 0};
-                saveUserConfig(newConfig);
-              }}
-              style={{ 
-                width: '100%', 
-                padding: '12px', 
-                border: '1px solid #ccc', 
-                borderRadius: '5px',
-                fontSize: '16px',
-                boxSizing: 'border-box'
-              }}
-            />
-          </div>
-        </div>
-      </div>
+  const ConfigTab = () => {
+    const handleConfigUpdate = useCallback((field, value) => {
+      const newConfig = { ...userConfig, [field]: value };
+      saveUserConfig(newConfig);
+    }, [userConfig, saveUserConfig]);
 
-      <div style={{ 
-        background: 'white', 
-        padding: '20px', 
-        borderRadius: '10px', 
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-        marginBottom: '20px'
-      }}>
-        <h3 style={{ marginBottom: '20px' }}>🛒 My Usual Items</h3>
-        <p style={{ color: '#666', marginBottom: '20px' }}>
-          Add items you regularly buy so AI can find better prices in {activeLocation?.city || 'your area'}
-        </p>
+    const handleCategoryUpdate = useCallback((category, value) => {
+      const newCategories = { ...userConfig.categories, [category]: parseInt(value) || 0 };
+      const newConfig = { ...userConfig, categories: newCategories };
+      saveUserConfig(newConfig);
+    }, [userConfig, saveUserConfig]);
+
+    const handleUsualItemUpdate = useCallback((index, field, value) => {
+      const newItems = [...(userConfig.usualItems || [])];
+      newItems[index] = { ...newItems[index], [field]: value };
+      const newConfig = { ...userConfig, usualItems: newItems };
+      saveUserConfig(newConfig);
+    }, [userConfig, saveUserConfig]);
+
+    const addUsualItem = useCallback(() => {
+      const newItems = [...(userConfig.usualItems || []), {
+        id: Date.now().toString(),
+        name: '', 
+        brand: '', 
+        category: 'food', 
+        currentPrice: 0
+      }];
+      const newConfig = { ...userConfig, usualItems: newItems };
+      saveUserConfig(newConfig);
+    }, [userConfig, saveUserConfig]);
+
+    const removeUsualItem = useCallback((index) => {
+      const newItems = (userConfig.usualItems || []).filter((_, i) => i !== index);
+      const newConfig = { ...userConfig, usualItems: newItems };
+      saveUserConfig(newConfig);
+    }, [userConfig, saveUserConfig]);
+
+    return (
+      <div>
+        <h2 style={{ marginBottom: '20px' }}>⚙️ Budget Configuration</h2>
         
-        <div style={{ marginBottom: '15px', fontWeight: 'bold', display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr auto', gap: '10px' }}>
-          <div>Item Name</div>
-          <div>Brand</div>
-          <div>Category</div>
-          <div>Current Price</div>
-          <div>Actions</div>
+        <div style={{ 
+          background: 'white', 
+          padding: '20px', 
+          borderRadius: '10px', 
+          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+          marginBottom: '20px'
+        }}>
+          <h3 style={{ marginBottom: '20px', color: '#3b82f6' }}>💰 Basic Information</h3>
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', 
+            gap: '20px'
+          }}>
+            <div>
+              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>💵 Monthly Salary (R)</label>
+              <StableInput
+                type="number"
+                value={userConfig.salary || ''}
+                onChange={(e) => handleConfigUpdate('salary', parseInt(e.target.value) || 0)}
+                style={{ 
+                  width: '100%', 
+                  padding: '12px', 
+                  border: '1px solid #ccc', 
+                  borderRadius: '5px',
+                  fontSize: '16px',
+                  boxSizing: 'border-box'
+                }}
+              />
+            </div>
+            
+            <div>
+              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>👥 Household Size</label>
+              <StableInput
+                type="number"
+                value={userConfig.people || ''}
+                onChange={(e) => handleConfigUpdate('people', parseInt(e.target.value) || 1)}
+                style={{ 
+                  width: '100%', 
+                  padding: '12px', 
+                  border: '1px solid #ccc', 
+                  borderRadius: '5px',
+                  fontSize: '16px',
+                  boxSizing: 'border-box'
+                }}
+              />
+            </div>
+            
+            <div>
+              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>🎯 Savings Goal (R)</label>
+              <StableInput
+                type="number"
+                value={userConfig.savingsGoal || ''}
+                onChange={(e) => handleConfigUpdate('savingsGoal', parseInt(e.target.value) || 0)}
+                style={{ 
+                  width: '100%', 
+                  padding: '12px', 
+                  border: '1px solid #ccc', 
+                  borderRadius: '5px',
+                  fontSize: '16px',
+                  boxSizing: 'border-box'
+                }}
+              />
+            </div>
+          </div>
         </div>
-        
-        {(userConfig.usualItems || []).map((item, index) => (
-          <UsualItemRow 
-            key={`item-${index}-${item.name || 'empty'}`}
-            item={item}
-            index={index}
-            onUpdate={(idx, updatedItem) => {
-              const newItems = [...(userConfig.usualItems || [])];
-              newItems[idx] = updatedItem;
-              saveUserConfig({...userConfig, usualItems: newItems});
+
+        {/* Budget Categories */}
+        <div style={{ 
+          background: 'white', 
+          padding: '20px', 
+          borderRadius: '10px', 
+          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+          marginBottom: '20px'
+        }}>
+          <h3 style={{ marginBottom: '20px', color: '#10b981' }}>📊 Budget Categories</h3>
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', 
+            gap: '15px'
+          }}>
+            {Object.entries(userConfig.categories || {}).map(([category, amount]) => (
+              <div key={category}>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', textTransform: 'capitalize' }}>
+                  {category.replace(/([A-Z])/g, ' $1')}
+                </label>
+                <StableInput
+                  type="number"
+                  value={amount || ''}
+                  onChange={(e) => handleCategoryUpdate(category, e.target.value)}
+                  placeholder="0"
+                  style={{ 
+                    width: '100%', 
+                    padding: '10px', 
+                    border: '1px solid #ccc', 
+                    borderRadius: '5px',
+                    fontSize: '14px',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Usual Items */}
+        <div style={{ 
+          background: 'white', 
+          padding: '20px', 
+          borderRadius: '10px', 
+          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+          marginBottom: '20px'
+        }}>
+          <h3 style={{ marginBottom: '20px', color: '#f59e0b' }}>🛒 My Usual Items</h3>
+          <p style={{ color: '#666', marginBottom: '20px' }}>
+            Add items you regularly buy so AI can find better prices across all your locations
+          </p>
+          
+          <div style={{ marginBottom: '15px', fontWeight: 'bold', display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr auto', gap: '10px' }}>
+            <div>Item Name</div>
+            <div>Brand</div>
+            <div>Category</div>
+            <div>Current Price</div>
+            <div>Actions</div>
+          </div>
+          
+          {(userConfig.usualItems || []).map((item, index) => (
+            <div key={`item-${index}`} style={{ 
+              display: 'grid', 
+              gridTemplateColumns: '2fr 1fr 1fr 1fr auto', 
+              gap: '10px', 
+              alignItems: 'center',
+              marginBottom: '10px',
+              padding: '10px',
+              background: '#f8fafc',
+              borderRadius: '5px'
+            }}>
+              <StableInput
+                type="text"
+                placeholder="Item name"
+                value={item.name || ''}
+                onChange={(e) => handleUsualItemUpdate(index, 'name', e.target.value)}
+                style={{ padding: '8px', border: '1px solid #ccc', borderRadius: '3px' }}
+              />
+              <StableInput
+                type="text"
+                placeholder="Brand"
+                value={item.brand || ''}
+                onChange={(e) => handleUsualItemUpdate(index, 'brand', e.target.value)}
+                style={{ padding: '8px', border: '1px solid #ccc', borderRadius: '3px' }}
+              />
+              <select
+                value={item.category || 'food'}
+                onChange={(e) => handleUsualItemUpdate(index, 'category', e.target.value)}
+                style={{ padding: '8px', border: '1px solid #ccc', borderRadius: '3px' }}
+              >
+                <option value="food">Food</option>
+                <option value="cleaning">Cleaning</option>
+                <option value="medication">Medication</option>
+                <option value="petcare">Pet Care</option>
+                <option value="other">Other</option>
+              </select>
+              <StableInput
+                type="number"
+                placeholder="Price"
+                value={item.currentPrice || ''}
+                onChange={(e) => handleUsualItemUpdate(index, 'currentPrice', parseFloat(e.target.value) || 0)}
+                style={{ padding: '8px', border: '1px solid #ccc', borderRadius: '3px' }}
+              />
+              <button 
+                onClick={() => removeUsualItem(index)}
+                style={{ 
+                  background: '#ef4444', 
+                  color: 'white', 
+                  border: 'none', 
+                  padding: '8px 12px', 
+                  borderRadius: '3px',
+                  cursor: 'pointer'
+                }}
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+          
+          <button
+            onClick={addUsualItem}
+            style={{ 
+              background: '#10b981', 
+              color: 'white', 
+              border: 'none', 
+              padding: '10px 20px', 
+              borderRadius: '5px',
+              cursor: 'pointer',
+              marginTop: '10px'
             }}
-            onDelete={(idx) => {
-              const newItems = (userConfig.usualItems || []).filter((_, i) => i !== idx);
-              saveUserConfig({...userConfig, usualItems: newItems});
-            }}
-          />
-        ))}
-        
-        <button
-          onClick={() => {
-            const newItems = [...(userConfig.usualItems || []), {
-              id: Date.now().toString(),
-              name: '', 
-              brand: '', 
-              category: 'food', 
-              currentPrice: 0
-            }];
-            saveUserConfig({...userConfig, usualItems: newItems});
-          }}
-          style={{ 
-            background: '#10b981', 
-            color: 'white', 
-            border: 'none', 
-            padding: '10px 20px', 
-            borderRadius: '5px',
-            cursor: 'pointer',
-            marginTop: '10px'
-          }}
-        >
-          ➕ Add Item
-        </button>
+          >
+            ➕ Add Item
+          </button>
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const SearchTab = () => {
     const [localSearch, setLocalSearch] = useState('');
@@ -1849,13 +1838,13 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
     return (
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-          <h2>💊 AI Multi-Location Search</h2>
+          <h2>💊 AI Multi-Location Medicine Search</h2>
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontSize: '14px', color: '#666' }}>
               🔍 Searching across {locations.length} location{locations.length !== 1 ? 's' : ''}
             </div>
             <div style={{ fontSize: '12px', color: '#888' }}>
-              {locations.map(loc => loc.name).join(', ')}
+              {locations.map(loc => `${loc.name} (${loc.city})`).join(', ')}
             </div>
           </div>
         </div>
@@ -1898,19 +1887,20 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
             </button>
           </div>
           
-          <div style={{ fontSize: '14px', color: '#666' }}>
-            🤖 AI searches ALL your saved locations to find the absolute best prices!
+          <div style={{ fontSize: '14px', color: '#666', marginBottom: '10px' }}>
+            🤖 AI searches ALL your saved locations simultaneously for the best prices!
           </div>
           
           {locations.length > 1 && (
             <div style={{ 
-              marginTop: '10px', 
               padding: '10px', 
               background: '#f0f9ff', 
               borderRadius: '5px',
               fontSize: '12px'
             }}>
-              <strong>Multi-Location Search:</strong> Comparing prices across {locations.map(loc => `${loc?.name || 'Unknown'} (${loc?.city || 'Unknown'})`).join(', ')}
+              <strong>Multi-Location Search Coverage:</strong> {locations.map(loc => 
+                `${loc?.name || 'Unknown'} (${loc?.city || 'Unknown'}, ${loc?.province || 'Unknown'})`
+              ).join(' • ')}
             </div>
           )}
         </div>
@@ -2056,6 +2046,20 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
                   
                   <div style={{ display: 'flex', gap: '5px' }}>
                     <button 
+                      onClick={() => addToCart(result)}
+                      style={{ 
+                        background: '#8b5cf6', 
+                        color: 'white', 
+                        border: 'none',
+                        fontSize: '12px', 
+                        padding: '5px 10px',
+                        borderRadius: '3px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      🛒 Add to List
+                    </button>
+                    <button 
                       style={{ 
                         background: '#3b82f6', 
                         color: 'white', 
@@ -2067,19 +2071,6 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
                       }}
                     >
                       📍 Directions
-                    </button>
-                    <button 
-                      style={{ 
-                        background: '#10b981', 
-                        color: 'white', 
-                        border: 'none',
-                        fontSize: '12px', 
-                        padding: '5px 10px',
-                        borderRadius: '3px',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      📞 Call
                     </button>
                   </div>
                 </div>
@@ -2097,7 +2088,7 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
                 🤖 AI Recommendation: Save R{medicationResults.length > 1 ? (parseFloat(medicationResults[medicationResults.length - 1]?.price || 0) - parseFloat(medicationResults[0]?.price || 0)).toFixed(2) : '0.00'} by choosing the best option!
               </div>
               <div style={{ fontSize: '14px', color: '#666' }}>
-                Consider travel time and convenience when making your choice
+                Consider travel costs and convenience when making your choice. Add items to your shopping list to track purchases.
               </div>
             </div>
           </div>
@@ -2148,16 +2139,33 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
                     Save R{deal.savings}
                   </div>
                 </div>
-                <button style={{ 
-                  background: '#10b981', 
-                  color: 'white', 
-                  border: 'none', 
-                  padding: '10px 15px', 
-                  borderRadius: '5px',
-                  cursor: 'pointer'
-                }}>
-                  🛒 Get Deal
-                </button>
+                <div style={{ display: 'flex', gap: '5px' }}>
+                  <button 
+                    onClick={() => addToCart(deal)}
+                    style={{ 
+                      background: '#8b5cf6', 
+                      color: 'white', 
+                      border: 'none', 
+                      padding: '8px 12px', 
+                      borderRadius: '5px',
+                      cursor: 'pointer',
+                      fontSize: '12px'
+                    }}
+                  >
+                    📋 Add to List
+                  </button>
+                  <button style={{ 
+                    background: '#10b981', 
+                    color: 'white', 
+                    border: 'none', 
+                    padding: '8px 12px', 
+                    borderRadius: '5px',
+                    cursor: 'pointer',
+                    fontSize: '12px'
+                  }}>
+                    🛒 Get Deal
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -2166,7 +2174,354 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
     </div>
   );
 
+  const CartTab = () => {
+    const groupedItems = shoppingCart.reduce((groups, item) => {
+      const category = item.category || 'other';
+      if (!groups[category]) groups[category] = [];
+      groups[category].push(item);
+      return groups;
+    }, {});
+
+    return (
+      <div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          <h2>📋 Smart Shopping List</h2>
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button
+              onClick={clearCart}
+              disabled={shoppingCart.length === 0}
+              style={{
+                background: shoppingCart.length === 0 ? '#ccc' : '#ef4444',
+                color: 'white',
+                border: 'none',
+                padding: '8px 16px',
+                borderRadius: '5px',
+                cursor: shoppingCart.length === 0 ? 'not-allowed' : 'pointer'
+              }}
+            >
+              🗑️ Clear All
+            </button>
+          </div>
+        </div>
+
+        {/* Cart Summary */}
+        <div style={{ 
+          display: 'grid', 
+          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
+          gap: '20px', 
+          marginBottom: '30px' 
+        }}>
+          <div style={{ 
+            background: '#eff6ff', 
+            padding: '20px',
+            borderRadius: '10px',
+            border: '1px solid #dbeafe'
+          }}>
+            <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#1e40af' }}>
+              {cartTotals.itemCount}
+            </div>
+            <div style={{ fontSize: '14px', color: '#3b82f6' }}>Total Items</div>
+          </div>
+          
+          <div style={{ 
+            background: '#f0fdf4', 
+            padding: '20px',
+            borderRadius: '10px',
+            border: '1px solid #bbf7d0'
+          }}>
+            <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#166534' }}>
+              {cartTotals.checkedCount}
+            </div>
+            <div style={{ fontSize: '14px', color: '#16a34a' }}>Items Checked</div>
+          </div>
+          
+          <div style={{ 
+            background: '#fef3c7', 
+            padding: '20px',
+            borderRadius: '10px',
+            border: '1px solid #fbbf24'
+          }}>
+            <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#d97706' }}>
+              R{cartTotals.total.toFixed(2)}
+            </div>
+            <div style={{ fontSize: '14px', color: '#f59e0b' }}>Total Cost</div>
+          </div>
+          
+          <div style={{ 
+            background: '#f3e8ff', 
+            padding: '20px',
+            borderRadius: '10px',
+            border: '1px solid #c4b5fd'
+          }}>
+            <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#7c3aed' }}>
+              R{cartTotals.checkedTotal.toFixed(2)}
+            </div>
+            <div style={{ fontSize: '14px', color: '#8b5cf6' }}>Checked Total</div>
+          </div>
+        </div>
+
+        {shoppingCart.length === 0 ? (
+          <div style={{ 
+            background: 'white', 
+            padding: '40px', 
+            borderRadius: '10px', 
+            boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+            textAlign: 'center'
+          }}>
+            <div style={{ fontSize: '48px', marginBottom: '20px' }}>🛒</div>
+            <h3 style={{ color: '#666', marginBottom: '10px' }}>Your shopping list is empty</h3>
+            <p style={{ color: '#888', marginBottom: '20px' }}>
+              Add items from medicine search, deals, or manually create your list
+            </p>
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+              <button
+                onClick={() => setActiveTab('search')}
+                style={{
+                  background: '#3b82f6',
+                  color: 'white',
+                  border: 'none',
+                  padding: '10px 20px',
+                  borderRadius: '5px',
+                  cursor: 'pointer'
+                }}
+              >
+                🔍 Search Medicine
+              </button>
+              <button
+                onClick={() => setActiveTab('deals')}
+                style={{
+                  background: '#10b981',
+                  color: 'white',
+                  border: 'none',
+                  padding: '10px 20px',
+                  borderRadius: '5px',
+                  cursor: 'pointer'
+                }}
+              >
+                🎯 Browse Deals
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div style={{ 
+            background: 'white', 
+            padding: '20px', 
+            borderRadius: '10px', 
+            boxShadow: '0 2px 4px rgba(0,0,0,0.1)' 
+          }}>
+            <h3 style={{ marginBottom: '20px' }}>🛒 Your Items</h3>
+            
+            {Object.entries(groupedItems).map(([category, items]) => (
+              <div key={category} style={{ marginBottom: '30px' }}>
+                <h4 style={{ 
+                  color: '#374151', 
+                  marginBottom: '15px',
+                  textTransform: 'capitalize',
+                  borderBottom: '2px solid #e5e7eb',
+                  paddingBottom: '5px'
+                }}>
+                  {category} ({items.length} items)
+                </h4>
+                
+                <div style={{ display: 'grid', gap: '10px' }}>
+                  {items.map((item) => (
+                    <div key={item.id} style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '15px',
+                      padding: '15px',
+                      background: item.checked ? '#f0fdf4' : '#f8fafc',
+                      borderRadius: '8px',
+                      border: item.checked ? '2px solid #22c55e' : '1px solid #e2e8f0'
+                    }}>
+                      <input
+                        type="checkbox"
+                        checked={item.checked}
+                        onChange={(e) => updateCartItem(item.id, { checked: e.target.checked })}
+                        style={{ 
+                          width: '18px', 
+                          height: '18px',
+                          cursor: 'pointer'
+                        }}
+                      />
+                      
+                      <div style={{ flex: 1 }}>
+                        <div style={{ 
+                          fontWeight: 'bold', 
+                          fontSize: '16px',
+                          textDecoration: item.checked ? 'line-through' : 'none',
+                          color: item.checked ? '#666' : '#000'
+                        }}>
+                          {item.name}
+                        </div>
+                        {item.store && (
+                          <div style={{ fontSize: '14px', color: '#666' }}>
+                            📍 {item.store} {item.location && `- ${item.location}`}
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                          <label style={{ fontSize: '14px', color: '#666' }}>Qty:</label>
+                          <StableInput
+                            type="number"
+                            min="1"
+                            value={item.quantity}
+                            onChange={(e) => updateCartItem(item.id, { quantity: parseInt(e.target.value) || 1 })}
+                            style={{
+                              width: '60px',
+                              padding: '5px',
+                              border: '1px solid #ccc',
+                              borderRadius: '3px',
+                              textAlign: 'center'
+                            }}
+                          />
+                        </div>
+                        
+                        <div style={{ textAlign: 'right', minWidth: '80px' }}>
+                          <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#374151' }}>
+                            R{(item.price * item.quantity).toFixed(2)}
+                          </div>
+                          {item.quantity > 1 && (
+                            <div style={{ fontSize: '12px', color: '#666' }}>
+                              R{item.price.toFixed(2)} each
+                            </div>
+                          )}
+                        </div>
+                        
+                        <button
+                          onClick={() => removeFromCart(item.id)}
+                          style={{
+                            background: '#ef4444',
+                            color: 'white',
+                            border: 'none',
+                            padding: '5px 8px',
+                            borderRadius: '3px',
+                            cursor: 'pointer',
+                            fontSize: '12px'
+                          }}
+                        >
+                          🗑️
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+            
+            {/* Cart Actions */}
+            <div style={{ 
+              marginTop: '30px', 
+              padding: '20px', 
+              background: '#f8fafc', 
+              borderRadius: '8px',
+              border: '1px solid #e2e8f0'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#374151' }}>
+                    Total: R{cartTotals.total.toFixed(2)}
+                  </div>
+                  <div style={{ fontSize: '14px', color: '#666' }}>
+                    {cartTotals.checkedCount} of {cartTotals.itemCount} items checked 
+                    {cartTotals.checkedCount > 0 && ` (R${cartTotals.checkedTotal.toFixed(2)})`}
+                  </div>
+                </div>
+                
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button
+                    onClick={() => {
+                      const allChecked = shoppingCart.every(item => item.checked);
+                      shoppingCart.forEach(item => {
+                        updateCartItem(item.id, { checked: !allChecked });
+                      });
+                    }}
+                    style={{
+                      background: '#6b7280',
+                      color: 'white',
+                      border: 'none',
+                      padding: '8px 16px',
+                      borderRadius: '5px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {shoppingCart.every(item => item.checked) ? '☐ Uncheck All' : '☑️ Check All'}
+                  </button>
+                </div>
+              </div>
+              
+              {cartTotals.checkedCount > 0 && (
+                <div style={{ 
+                  marginTop: '15px', 
+                  padding: '10px', 
+                  background: '#dcfce7', 
+                  borderRadius: '5px',
+                  fontSize: '14px',
+                  color: '#166534'
+                }}>
+                  💡 <strong>Budget Impact:</strong> Your checked items (R{cartTotals.checkedTotal.toFixed(2)}) represent {((cartTotals.checkedTotal / (userConfig.categories?.food || 1)) * 100).toFixed(1)}% of your monthly food budget.
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const MealPlanTab = () => {
+    const generatePersonalizedMealPlan = useMemo(() => {
+      const proteins = userConfig.foodPreferences?.proteins || ['chicken', 'eggs'];
+      const vegetables = userConfig.foodPreferences?.vegetables || ['potatoes', 'onions'];
+      const grains = userConfig.foodPreferences?.grains || ['rice', 'pap'];
+      const people = userConfig.people || 1;
+      
+      return [
+        { 
+          day: 'Monday', 
+          meal: `${proteins[0]} & ${grains[0]} Curry`, 
+          cost: 45.20 + (people - 4) * 8, 
+          serves: people,
+          ingredients: [proteins[0], grains[0], vegetables[0] || 'onions'],
+          calories: 520
+        },
+        { 
+          day: 'Tuesday', 
+          meal: `${proteins[1] || proteins[0]} & ${vegetables[0]} Scramble`, 
+          cost: 28.50 + (people - 4) * 5, 
+          serves: people,
+          ingredients: [proteins[1] || proteins[0], vegetables[0]],
+          calories: 380
+        },
+        { 
+          day: 'Wednesday', 
+          meal: `${proteins[0]} Stir Fry`, 
+          cost: 52.80 + (people - 4) * 10, 
+          serves: people,
+          ingredients: [proteins[0], vegetables[1] || vegetables[0] || 'mixed vegetables'],
+          calories: 450
+        },
+        { 
+          day: 'Thursday', 
+          meal: `${grains[0]} & Lentil Bowl`, 
+          cost: 32.20 + (people - 4) * 6, 
+          serves: people,
+          ingredients: ['Lentils', grains[0], vegetables[0] || 'onions'],
+          calories: 420
+        },
+        { 
+          day: 'Friday', 
+          meal: `${vegetables[0]} Curry`, 
+          cost: 25.90 + (people - 4) * 4, 
+          serves: people,
+          ingredients: [vegetables[0], 'Curry spices', 'tomatoes'],
+          calories: 350
+        }
+      ];
+    }, [userConfig]);
+
     const totalMealCost = generatePersonalizedMealPlan.reduce((sum, meal) => sum + meal.cost, 0);
     const weeklyFoodBudget = (userConfig.categories?.food || 0) / 4;
 
@@ -2202,6 +2557,26 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
             </div>
             <div style={{ fontSize: '14px', color: '#16a34a' }}>Food Budget</div>
           </div>
+          <div style={{ 
+            background: totalMealCost <= weeklyFoodBudget ? '#f0fdf4' : '#fef2f2', 
+            border: `1px solid ${totalMealCost <= weeklyFoodBudget ? '#bbf7d0' : '#fecaca'}`,
+            padding: '20px',
+            borderRadius: '10px'
+          }}>
+            <div style={{ 
+              fontSize: '20px', 
+              fontWeight: 'bold', 
+              color: totalMealCost <= weeklyFoodBudget ? '#166534' : '#dc2626'
+            }}>
+              {totalMealCost <= weeklyFoodBudget ? '✓' : '⚠️'}
+            </div>
+            <div style={{ 
+              fontSize: '14px', 
+              color: totalMealCost <= weeklyFoodBudget ? '#16a34a' : '#dc2626'
+            }}>
+              {totalMealCost <= weeklyFoodBudget ? 'Within Budget' : 'Over Budget'}
+            </div>
+          </div>
         </div>
 
         <div style={{ 
@@ -2227,7 +2602,7 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
                 <div style={{ fontWeight: 'bold', fontSize: '16px' }}>{meal.day}</div>
                 <div style={{ fontSize: '16px', marginBottom: '5px' }}>{meal.meal}</div>
                 <div style={{ fontSize: '14px', color: '#666' }}>
-                  🥘 {meal.ingredients.join(', ')}
+                  🥘 {meal.ingredients.join(', ')} • {meal.calories} calories
                 </div>
               </div>
               <div style={{ textAlign: 'right' }}>
@@ -2238,8 +2613,50 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
                   R{(meal.cost / meal.serves).toFixed(2)}/person
                 </div>
               </div>
+              <button
+                onClick={() => {
+                  const mealAsCartItem = {
+                    name: `${meal.day}: ${meal.meal}`,
+                    price: meal.cost,
+                    store: 'Meal Plan',
+                    location: 'Home Cooking',
+                    category: 'food'
+                  };
+                  addToCart(mealAsCartItem);
+                }}
+                style={{
+                  background: '#8b5cf6',
+                  color: 'white',
+                  border: 'none',
+                  padding: '5px 10px',
+                  borderRadius: '3px',
+                  cursor: 'pointer',
+                  fontSize: '12px',
+                  marginLeft: '15px'
+                }}
+              >
+                📋 Add to List
+              </button>
             </div>
           ))}
+          
+          <div style={{ 
+            marginTop: '20px', 
+            padding: '15px', 
+            background: '#f0f9ff', 
+            borderRadius: '8px',
+            border: '1px solid #dbeafe'
+          }}>
+            <div style={{ fontWeight: 'bold', color: '#1e40af', marginBottom: '5px' }}>
+              🤖 AI Meal Planning Tips:
+            </div>
+            <div style={{ fontSize: '14px', color: '#666' }}>
+              • Plan based on your food preferences and household size<br/>
+              • Shop for ingredients in bulk to save money<br/>
+              • Use your location-based price search to find best deals<br/>
+              • Add meal ingredients to your shopping list for easy tracking
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -2256,7 +2673,7 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
           <div>
             <h1 style={{ margin: '0 0 10px 0', fontSize: '28px' }}>🏠 Personal Budget AI</h1>
             <p style={{ margin: 0, opacity: 0.9 }}>
-              Multi-User Budget Management • {userProfile.name || user.email}
+              Multi-Location Budget Management • {userProfile.name || user.email}
             </p>
           </div>
           <button 
@@ -2294,6 +2711,7 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
               { id: 'config', label: '⚙️ Budget' },
               { id: 'search', label: '💊 Med Search' },
               { id: 'deals', label: '🎯 My Deals' },
+              { id: 'cart', label: '📋 Shopping List' },
               { id: 'meals', label: '🍽️ Meal Plans' }
             ].map(tab => (
               <button
@@ -2322,6 +2740,7 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
             {activeTab === 'config' && <ConfigTab />}
             {activeTab === 'search' && <SearchTab />}
             {activeTab === 'deals' && <DealsTab />}
+            {activeTab === 'cart' && <CartTab />}
             {activeTab === 'meals' && <MealPlanTab />}
           </div>
         </div>
