@@ -389,22 +389,21 @@ function App() {
     }, 1000);
   }, []);
 
-  // Stable change handlers
-  const handleEmailChange = useCallback((e) => {
+  const handleEmailChange = (e) => {
     setEmail(e.target.value);
-  }, []);
+  };
 
-  const handlePasswordChange = useCallback((e) => {
+  const handlePasswordChange = (e) => {
     setPassword(e.target.value);
-  }, []);
+  };
 
-  const handleNameChange = useCallback((e) => {
+  const handleNameChange = (e) => {
     setName(e.target.value);
-  }, []);
+  };
 
-  const handleResetEmailChange = useCallback((e) => {
+  const handleResetEmailChange = (e) => {
     setResetEmail(e.target.value);
-  }, []);
+  };
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -861,14 +860,14 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
   }, [user.id]);
 
   // Location management functions with better stability
-  const handleLocationFormChange = useCallback((field, value) => {
+  const handleLocationFormChange = (field, value) => {
     setLocationForm(prev => ({
       ...prev,
       [field]: value
     }));
-  }, []);
+  };
 
-  const addLocation = useCallback(() => {
+  const addLocation = () => {
     if (!locationForm.name?.trim() || !locationForm.city?.trim() || !locationForm.province) {
       alert('Please fill in all required fields');
       return;
@@ -890,9 +889,9 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
     saveUserProfile({ locations: updatedLocations });
     setEditingLocation(null);
     setLocationForm({ name: '', city: '', province: '', country: 'South Africa' });
-  }, [locationForm, userProfile, saveUserProfile]);
+  };
 
-  const updateLocation = useCallback((locationId) => {
+  const updateLocation = (locationId) => {
     if (!locationForm.name?.trim() || !locationForm.city?.trim() || !locationForm.province) {
       alert('Please fill in all required fields');
       return;
@@ -913,9 +912,9 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
     saveUserProfile({ locations: updatedLocations });
     setEditingLocation(null);
     setLocationForm({ name: '', city: '', province: '', country: 'South Africa' });
-  }, [locationForm, userProfile, saveUserProfile]);
+  };
 
-  const deleteLocation = useCallback((locationId) => {
+  const deleteLocation = (locationId) => {
     const locations = userProfile.locations || [];
     if (locations.length <= 1) {
       alert('You must have at least one location');
@@ -937,23 +936,23 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
     }
 
     saveUserProfile(updatedProfile);
-  }, [userProfile, saveUserProfile]);
+  };
 
-  const switchActiveLocation = useCallback((locationId) => {
+  const switchActiveLocation = (locationId) => {
     saveUserProfile({ activeLocationId: locationId });
-  }, [saveUserProfile]);
+  };
 
-  const setPrimaryLocation = useCallback((locationId) => {
+  const setPrimaryLocation = (locationId) => {
     const updatedLocations = (userProfile.locations || []).map(loc => ({
       ...loc,
       isPrimary: loc.id === locationId
     }));
 
     saveUserProfile({ locations: updatedLocations });
-  }, [userProfile, saveUserProfile]);
+  };
 
   // Enhanced AI search with real web integration
-  const performAISearch = useCallback(async (query) => {
+  const performAISearch = async (query) => {
     if (!query?.trim()) {
       setSearchError('Please enter a search term');
       return;
@@ -971,7 +970,6 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
         return;
       }
 
-      // Use mock search for now - in real app, this would be actual web search
       const results = await mockWebSearch(query, locations);
       
       if (results.length === 0) {
@@ -986,10 +984,10 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
     } finally {
       setIsSearching(false);
     }
-  }, [userProfile]);
+  };
 
   // Shopping cart functions
-  const addToCart = useCallback((item) => {
+  const addToCart = (item) => {
     const cartItem = {
       id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
       name: item.name || item.product || item.item || 'Unknown Item',
@@ -1007,27 +1005,26 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
     const newCart = [...shoppingCart, cartItem];
     saveShoppingCart(newCart);
     
-    // Show confirmation
     alert(`Added "${cartItem.name}" to your shopping list!`);
-  }, [shoppingCart, saveShoppingCart]);
+  };
 
-  const updateCartItem = useCallback((itemId, updates) => {
+  const updateCartItem = (itemId, updates) => {
     const newCart = shoppingCart.map(item => 
       item.id === itemId ? { ...item, ...updates } : item
     );
     saveShoppingCart(newCart);
-  }, [shoppingCart, saveShoppingCart]);
+  };
 
-  const removeFromCart = useCallback((itemId) => {
+  const removeFromCart = (itemId) => {
     const newCart = shoppingCart.filter(item => item.id !== itemId);
     saveShoppingCart(newCart);
-  }, [shoppingCart, saveShoppingCart]);
+  };
 
-  const clearCart = useCallback(() => {
+  const clearCart = () => {
     if (window.confirm('Are you sure you want to clear your entire shopping list?')) {
       saveShoppingCart([]);
     }
-  }, [saveShoppingCart]);
+  };
 
   // Calculate cart totals
   const cartTotals = useMemo(() => {
@@ -1061,11 +1058,11 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
   }, [userConfig.usualItems]);
 
   // Get directions function
-  const getDirections = useCallback((item) => {
+  const getDirections = (item) => {
     const query = encodeURIComponent(`${item.store} ${item.location || item.city || ''}`);
     const url = `https://www.google.com/maps/search/${query}`;
     window.open(url, '_blank');
-  }, []);
+  };
 
   if (loading) {
     return (
@@ -1302,9 +1299,9 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
     const activeLocation = getActiveLocation();
     const locations = userProfile?.locations || [];
 
-    const handleNameChange = useCallback((e) => {
+    const handleNameChange = (e) => {
       saveUserProfile({ name: e.target.value });
-    }, [saveUserProfile]);
+    };
 
     return (
       <div>
@@ -1949,19 +1946,19 @@ const PersonalizedBudgetApp = ({ user, onLogout }) => {
     const activeLocation = getActiveLocation();
     const locations = userProfile.locations || [];
 
-    const handleSearch = useCallback(() => {
+    const handleSearch = () => {
       performAISearch(searchQuery);
-    }, [searchQuery, performAISearch]);
+    };
 
-    const handleSearchChange = useCallback((e) => {
+    const handleSearchChange = (e) => {
       setSearchQuery(e.target.value);
-    }, []);
+    };
 
-    const handleKeyPress = useCallback((e) => {
+    const handleKeyPress = (e) => {
       if (e.key === 'Enter') {
         handleSearch();
       }
-    }, [handleSearch]);
+    };
 
     return (
       <div>
